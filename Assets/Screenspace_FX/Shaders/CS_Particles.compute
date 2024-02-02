@@ -1,0 +1,152 @@
+// Here we will handle the particles 
+// Their position, collisions, etc...
+#define WARP_SIZE 256
+
+#pragma kernel CSSetIndirectArgs
+#pragma kernel CSParticlesSimulation
+#pragma kernel CSBufferUnion
+#pragma kernel CSClearIndirectDrawArgs
+
+#include "ParticlesCommons.cginc"
+#include "SSFXUtils.cginc"
+
+// 0 - VertexCount
+// 1 - InstanceCount 
+// 2 - StartVertexCount 
+// 3 - StartInstanceLocation 
+// 4 - PreviousInstanceCount
+// 5 - FrameNumber
+// 6 - Index if buffer full
+uniform RWBuffer<int> _ParticlesDrawArgs;
+#define _ParticlesCounter _ParticlesDrawArgs[1]
+
+uniform RWStructuredBuffer<ParticleDatas> _ParticlesDatasBuffer;
+uniform StructuredBuffer<ParticleDatas> _PreviousParticlesDatasBuffer;
+uniform StructuredBuffer<ParticlesConfig> _ParticlesConfigs;
+uniform int _MaxParticlesCount;
+uniform int _PrioritizeNewParticles;
+
+// Move variables
+// x = Gravity, y = _FloorHeight, z = MaxSpeed, w = ?
+uniform float4 _SimulationBase;
+// xyz = Wind Direction
+uniform float4 _Wind;
+uniform Texture2D<float3> _NoiseMap;
+SamplerState sampler_NoiseMap;
+// XY = Tilling, Z = Strength, W = ?
+uniform float4 _NoiseMap_ST;
+uniform float4 _TargetPosition;
+// XYZ = Position, W = TargetAttractionForce
+uniform float4 _ParticlesTarget;
+
+uniform RWBuffer<int> _IndirectArgs; // buffer union args, simulation args 
+
+// Global uniforms set by Unity
+uniform float4 _Time; // (t/20, t, t*2, t*3)
+uniform float unity_DeltaTime;
+#define TRANSFORM_TEX(tex,name) (tex.xy * name##_ST.xy + name##_ST.zw)
+
+/** 
+Set the threads value for dispatch indirect
+**/
+[numthreads(1,1,1)]
+void CSSetIndirectArgs (uint3 id : SV_DispatchThreadID)
+{
+    int argsUnion = ceil(float(_ParticlesDrawArgs[4]) / WARP_SIZE);
+    _IndirectArgs[0] = argsUnion;
+    
+    float maxParticlesToSimulate = min(_ParticlesCounter + _ParticlesDrawArgs[4], _MaxParticlesCount);
+    int argsSimulation = ceil(maxParticlesToSimulate / WARP_SIZE);
+    _IndirectArgs[3] = argsSimulation;
+}
+
+[numthreads(1,1,1)]
+void CSClearIndirectDrawArgs (uint3 id : SV_DispatchThreadID)
+{
+    // Set the previous counter with actual buffer size
+    _ParticlesDrawArgs[4] = _ParticlesDrawArgs[1];
+    _ParticlesDrawArgs[1] = 0;
+}
+
+/**
+Here we handle the movements of the particles
+**/
+[numthreads(WARP_SIZE,1,1)]
+void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
+{
+    int particleIndex = id.x;
+    if (particleIndex > _ParticlesCounter)
+        return;
+    
+    ParticleDatas datas = _ParticlesDatasBuffer[particleIndex]; 
+    ParticlesConfig config = _ParticlesConfigs[datas.indexConfig];
+    
+    float timeLived = _Time.y - datas.timeApparition;
+    float lifeProgress = timeLived / datas.duration;
+    {
+        datas.size = datas.startSize;//* GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
+    }
+
+    if (datas.worldPosition.y > _SimulationBase.y)
+    {
+        float2 uv = datas.worldPosition.xy * _NoiseMap_ST.xy;
+        float3 flowSpeed = (_NoiseMap.SampleLevel(sampler_NoiseMap, uv, 0.0).xyz - 1.0) * 2.0;
+        float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * unity_DeltaTime;
+        
+        // Move to target
+        float3 directionToTarget = _ParticlesTarget.xyz - datas.worldPosition;
+        float distanceInfluenceTargetAttraction = lerp(_ParticlesTarget.w, 0, clamp(pow(length(directionToTarget), 2.0) / 30, 0.0, 1.0));
+        newSpeed += directionToTarget * distanceInfluenceTargetAttraction * unity_DeltaTime;
+        
+        if (length(newSpeed) > _SimulationBase.z)
+            newSpeed = normalize(newSpeed) * _SimulationBase.z;
+        datas.speed = lerp(datas.speed, newSpeed, 0.2);
+        if (length(datas.speed) > _SimulationBase.z)
+            datas.speed = normalize(datas.speed) * _SimulationBase.z;
+        datas.worldPosition += float4(datas.speed, 0);
+        datas.worldPosition.y = max(datas.worldPosition.y, _SimulationBase.y);
+    }
+//    else 
+//        datas.worldPosition += float4(datas.normal * 0.01, 0.0f);
+    _ParticlesDatasBuffer[particleIndex] = datas;
+}
+
+/**
+The goal here is to add the previous still alive particles
+to the buffer of new particles
+**/
+[numthreads(WARP_SIZE,1,1)]
+void CSBufferUnion (uint id : SV_DispatchThreadID)
+{
+    int bufferIndex = id.x;
+    int previousBufferSize = _ParticlesDrawArgs[4];
+
+    if (bufferIndex > previousBufferSize)
+        return;
+    
+    if (!_PrioritizeNewParticles)
+        bufferIndex = previousBufferSize - id.x;
+    
+    if (_ParticlesCounter >= _MaxParticlesCount)
+        return;
+
+    ParticleDatas particle = _PreviousParticlesDatasBuffer[bufferIndex];
+    float timeLived = _Time.y - particle.timeApparition;
+    if (timeLived < particle.duration) // Check if the particle is still alive
+    {
+        int indexNewBuffer;
+        InterlockedAdd(_ParticlesCounter, 1, indexNewBuffer);
+        if (indexNewBuffer >= _MaxParticlesCount)
+        {
+            if (_PrioritizeNewParticles)
+                return;
+            else 
+            {
+                // Replace new particles by older at the beginning of the buffer
+                // _ParticlesDrawArgs[6] is the index to use if buffer is full
+                InterlockedAdd(_ParticlesDrawArgs[6], 1, indexNewBuffer);
+            }
+        }
+        _ParticlesDatasBuffer[indexNewBuffer] = particle;
+    }
+}
