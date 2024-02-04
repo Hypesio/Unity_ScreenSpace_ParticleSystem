@@ -16,6 +16,13 @@ struct ParticleDatas
 };
 
 #define SSFX_MAX_GRAD_KEYS 10
+#define FLAG_GRAVITY_MODIFIER (1 << 1)
+#define FLAG_COLOR_OVER_LIFETIME (1 << 2)
+#define FLAG_ALPHA_OVER_LIFETIME (1 << 3)
+#define FLAG_SIZE_OVER_LIFETIME (1 << 4)
+#define FLAG_TARGET (1 << 5)
+#define FLAG_SPEED_OVER_LIFETIME (1 << 6)
+#define FLAG_PAUSE_SIMULATION (1 << 7)
 
 struct ParticlesConfig {
     // used to tell in shader what to use or not

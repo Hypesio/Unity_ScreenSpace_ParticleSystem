@@ -97,7 +97,8 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 0}
+  m_LightingDataAsset: {fileID: 112000000, guid: a6a004f47b2bc5c47b7a536f76255a06,
+    type: 2}
   m_LightingSettings: {fileID: 0}
 --- !u!196 &4
 NavMeshSettings:
@@ -843,7 +844,6 @@ GameObject:
   - component: {fileID: 1501957880}
   - component: {fileID: 1501957879}
   - component: {fileID: 1501957878}
-  - component: {fileID: 1501957882}
   - component: {fileID: 1501957883}
   m_Layer: 0
   m_Name: Cube (4)
@@ -938,22 +938,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1501957882
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1501957877}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb13d17fd12234b45940556e11a8fe9d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  DebugTestDisappear: 0
-  DebugResetMat: 0
-  DurationDisappear: 3
-  MeshRenderer: {fileID: 1501957879}
 --- !u!114 &1501957883
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -966,6 +950,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae6f6ba8003160944a9db2c894f4dfca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  durationEffect: 5
   durationMin: 0.6
   durationMax: 5
   particleSpawnRate: 0.1
@@ -973,8 +958,8 @@ MonoBehaviour:
   maxStartSpeed: 1.6
   enableGravityModifier: 0
   gravityModifier: 0
-  minStartSize: 1
-  maxStartSize: 1
+  minStartSize: 0.01
+  maxStartSize: 0.1
   sizeOverLifetime:
     serializedVersion: 2
     m_Curve:

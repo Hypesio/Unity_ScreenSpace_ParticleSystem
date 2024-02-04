@@ -103,7 +103,7 @@ namespace SSFXParticles
             cmd.SetGlobalBuffer("_ParticlesDrawArgs", datas.indirectDrawArgs);
             cmd.SetGlobalTexture("_CameraColor", rtCameraColor.rt);
 
-            materialSSFX.SetFloat("_DurationDisappear", 2.0f);
+            materialSSFX.SetFloat("_durationEffect", 2.0f);
 
             Graphics.ClearRandomWriteTargets();
             Graphics.SetRandomWriteTarget(1, datas.particlesDatasBuffer, true);
@@ -165,8 +165,8 @@ namespace SSFXParticles
             compute.SetBuffer(simulationKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
             compute.SetFloat("_FloorHeight", settings.floorHeight);
             compute.SetVector("_SimulationBase", new Vector4(settings.gravity, settings.floorHeight, settings.maxParticleSpeed, 0));
-            compute.SetVector("_ParticlesTarget", ParticlesTargetHandler.GetTarget());
-            ComputeBuffer configs = SSFX.ParticlesConfigHandler.UpdateConfigsComputeBuffer();
+            //compute.SetVector("_ParticlesTarget", ParticlesTargetHandler.GetTarget());
+            ComputeBuffer configs = SSFX.SSFXParticleSystemHandler.UpdateConfigsComputeBuffer();
             if (configs != null)
                 compute.SetBuffer(simulationKernelID, "_ParticlesConfigs", configs);
             

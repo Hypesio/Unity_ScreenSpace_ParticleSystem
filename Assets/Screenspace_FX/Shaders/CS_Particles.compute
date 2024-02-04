@@ -80,6 +80,9 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
     
     ParticleDatas datas = _ParticlesDatasBuffer[particleIndex]; 
     ParticlesConfig config = _ParticlesConfigs[datas.indexConfig];
+
+    if (config.flagsFeature & FLAG_PAUSE_SIMULATION)
+        return;
     
     float timeLived = _Time.y - datas.timeApparition;
     float lifeProgress = timeLived / datas.duration;
@@ -94,7 +97,7 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * unity_DeltaTime;
         
         // Move to target
-        float3 directionToTarget = _ParticlesTarget.xyz - datas.worldPosition;
+        float3 directionToTarget = _ParticlesTarget.xyz - datas.worldPosition.xyz;
         float distanceInfluenceTargetAttraction = lerp(_ParticlesTarget.w, 0, clamp(pow(length(directionToTarget), 2.0) / 30, 0.0, 1.0));
         newSpeed += directionToTarget * distanceInfluenceTargetAttraction * unity_DeltaTime;
         

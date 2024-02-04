@@ -6,36 +6,10 @@ using System.Security.Cryptography.X509Certificates;
 using UnityEditor.PackageManager;
 using UnityEngine;
 
-public static class ParticlesTargetHandler
-{
-    private static Vector3 _ParticleTargetPosition;
-    private static float _AttractionForce;
-    private static bool _IsActive;
-    public static void SetTargetState(bool active)
-    {
-        _IsActive = active;
-    }
-
-    public static void SetTargetPosition(Vector3 pos, float attractionForce)
-    {
-        _ParticleTargetPosition = pos;
-        _AttractionForce = attractionForce;
-    }
-
-    public static Vector4 GetTarget()
-    {
-        if (_IsActive)
-            return new Vector4(_ParticleTargetPosition.x, _ParticleTargetPosition.y, _ParticleTargetPosition.z, _AttractionForce);
-        return Vector4.zero;
-    }
-
-}
-
-
-
 namespace SSFX {
 
-    enum ParticlesConfigFlags 
+    // If values are added here, changes should be copied in ParticlesCommons.cginc
+    enum SSFXParticleSystemFlags 
     {
         GravityModifier = 1 << 1,
         ColorOverLifetime = 1 << 2,
@@ -43,9 +17,10 @@ namespace SSFX {
         SizeOverLifetime = 1 << 4,
         Target = 1 << 5,
         SpeedOverLifetime = 1 << 6,
+        PauseSimulation = 1 << 7,
     }
 
-    unsafe public struct ParticlesConfig {
+    unsafe public struct SSFXParticleConfig {
         // used to tell in shader what to use or not
         public int flagsFeature;
         public float gravity;
@@ -63,18 +38,18 @@ namespace SSFX {
         public Vector4 targetDatas;
     }
 
-    public static class ParticlesConfigHandler
+    public static class SSFXParticleSystemHandler
     {
         private static int MAX_GRADIENT_KEYS = 10;
-        private static List<ParticlesConfig> _configs;
+        private static List<SSFXParticleConfig> _configs;
         private static List<Transform> _configsTargets;
         private static ComputeBuffer _configsBuffer;
 
-        private static int AddConfig(ParticlesConfig config)
+        private static int AddConfig(SSFXParticleConfig config)
         {
             if (_configs == null)
             {
-                _configs = new List<ParticlesConfig>();
+                _configs = new List<SSFXParticleConfig>();
             }
 
             _configs.Add(config);
@@ -94,7 +69,7 @@ namespace SSFX {
             }
             return true;
         }
-        unsafe private static bool ConfigEquality(ParticlesConfig a, ParticlesConfig b) {
+        unsafe private static bool ConfigEquality(SSFXParticleConfig a, SSFXParticleConfig b) {
             return a.gravity == b.gravity &&
             SequenceEqual(a.grad_colorOverLifetime,b.grad_colorOverLifetime, MAX_GRADIENT_KEYS * 4) &&
             SequenceEqual(a.grad_sizeOverLifetime,b.grad_sizeOverLifetime, MAX_GRADIENT_KEYS * 2) &&
@@ -102,11 +77,11 @@ namespace SSFX {
             && SequenceEqual(a.grad_speedOverLifetime,b.grad_speedOverLifetime, MAX_GRADIENT_KEYS * 2);
         }
 
-        private static int FindConfig(ParticlesConfig config) {
+        private static int FindConfig(SSFXParticleConfig config) {
             if (_configs == null)
                 return -1;
             for(int i = 0; i < _configs.Count; i++) {
-                ParticlesConfig act = _configs[i];
+                SSFXParticleConfig act = _configs[i];
                 if (ConfigEquality(config, act))
                     return i;
             }
@@ -119,21 +94,38 @@ namespace SSFX {
             }
         }
 
-        // Return the index of the particle config
-        // Will create a new config only if it doesn't already exist
-        unsafe public static int NewConfig(float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
+        public static void SetConfigPauseState(int configID, bool pause)
         {
-            ParticlesConfig config = new ParticlesConfig{};
+            if (configID >= _configs.Count() && configID >= 0)
+            {
+                Debug.LogWarning("[SSFX] You are trying to set pause state of an out of bound config");
+                return;
+            }
+
+            SSFXParticleConfig conf = _configs[configID];
+
+            if (pause)
+                conf.flagsFeature |= (int)SSFXParticleSystemFlags.PauseSimulation;
+            else if  (!pause && (conf.flagsFeature & (int)SSFXParticleSystemFlags.PauseSimulation) != 0)   
+                conf.flagsFeature ^= (int)SSFXParticleSystemFlags.PauseSimulation;
+            
+            _configs[configID] = conf;
+        }
+
+
+        unsafe public static void UpdateConfig(int configID, float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
+        {
+              SSFXParticleConfig config = new SSFXParticleConfig{};
 
             if (gravityModifierEnable) {
                 config.gravity = gravity;
-                config.flagsFeature &= (int)ParticlesConfigFlags.GravityModifier;
+                config.flagsFeature &= (int)SSFXParticleSystemFlags.GravityModifier;
             }
             
             if (targetTransform != null) {
                 Vector3 targetPos = targetTransform.position;
                 config.targetDatas = new Vector4(targetPos.x, targetPos.y, targetPos.z, attractionForce);
-                config.flagsFeature &= (int)ParticlesConfigFlags.Target;
+                config.flagsFeature |= (int)SSFXParticleSystemFlags.Target;
             }
             
             if (colorOverLifetime.alphaKeys.Count() > 0)
@@ -153,7 +145,7 @@ namespace SSFX {
                     index_key ++;
                 } 
 
-                config.flagsFeature &= (int)ParticlesConfigFlags.ColorOverLifetime;
+                config.flagsFeature |= (int)SSFXParticleSystemFlags.ColorOverLifetime;
             }
 
             if (colorOverLifetime.alphaKeys.Count() > 0)
@@ -170,7 +162,7 @@ namespace SSFX {
 
                     index_key ++;
                 } 
-                config.flagsFeature &= (int)ParticlesConfigFlags.AlphaOverLifetime;
+                config.flagsFeature |= (int)SSFXParticleSystemFlags.AlphaOverLifetime;
             }
 
             if (sizeOverLifetime.keys.Count() > 0)
@@ -187,7 +179,7 @@ namespace SSFX {
 
                     index_key ++;
                 } 
-                config.flagsFeature &= (int)ParticlesConfigFlags.SizeOverLifetime;
+                config.flagsFeature |= (int)SSFXParticleSystemFlags.SizeOverLifetime;
             }
 
             if (speedOverLifetime.keys.Count() > 0)
@@ -204,23 +196,30 @@ namespace SSFX {
 
                     index_key ++;
                 } 
-                config.flagsFeature &= (int)ParticlesConfigFlags.SpeedOverLifetime;
-            }
-
-            int index_config = FindConfig(config);
-            if (index_config == -1) {
-                index_config = AddConfig(config);
+                config.flagsFeature |= (int)SSFXParticleSystemFlags.SpeedOverLifetime;
             }
 
             {
                 if (_configsTargets == null)
                     _configsTargets = new List<Transform>();
                     
-                if (index_config >= _configsTargets.Count())
+                if (configID >= _configsTargets.Count())
                     _configsTargets.Add(targetTransform);
                 else 
-                    _configsTargets[index_config] = targetTransform;
+                    _configsTargets[configID] = targetTransform;
             }
+
+        }
+
+        // Return the index of the particle config
+        // Will create a new config only if it doesn't already exist
+        unsafe public static int NewConfig(float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
+        {
+            
+            SSFXParticleConfig config = new SSFXParticleConfig{};
+            int index_config = AddConfig(config);
+            Debug.Log($"New guy {index_config}");
+            UpdateConfig(index_config, gravity, gravityModifierEnable, colorOverLifetime, sizeOverLifetime, speedOverLifetime, targetTransform, attractionForce);
 
             return index_config;
         }
@@ -234,8 +233,7 @@ namespace SSFX {
             }
             if (_configs != null)
             {
-                _configsBuffer = new ComputeBuffer(_configs.Count(), Marshal.SizeOf(typeof(ParticlesConfig)), ComputeBufferType.Structured);
-                Debug.Log("Size of struct: " + Marshal.SizeOf(typeof(ParticlesConfig)));
+                _configsBuffer = new ComputeBuffer(_configs.Count(), Marshal.SizeOf(typeof(SSFXParticleConfig)), ComputeBufferType.Structured);
                 return _configsBuffer;
             }
             return null;
@@ -247,21 +245,25 @@ namespace SSFX {
             if (_configsBuffer == null)
                 if (CreateConfigsComputeBuffer() == null)
                     return null;
-
             
-            
+            // Update target position if needed
+            bool updated = false;
             for (int i = 0; i < _configs.Count(); i++)
             {
                 if (_configsTargets != null && _configsTargets[i] != null) 
                 {
+                    updated = true;
                     Vector3 tarPos = _configsTargets[i].position;
-                    ParticlesConfig conf = _configs[i];
+                    SSFXParticleConfig conf = _configs[i];
                     conf.targetDatas = new Vector4(tarPos.x, tarPos.y, tarPos.z, _configs[i].targetDatas.w);
                     _configs[i] = conf;
                 }
             }
+
+            Debug.Log($"Config len {_configs.Count()}");
             
-            _configsBuffer.SetData(_configs);
+            if(updated)
+                _configsBuffer.SetData(_configs);
 
             return _configsBuffer;
         }

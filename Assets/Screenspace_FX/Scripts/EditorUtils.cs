@@ -8,7 +8,6 @@ using System.Data;
 
 #if UNITY_EDITOR
 using UnityEditor;
-using Unity.EditorCoroutines.Editor;
 #endif
 public static class EditorUtils
 {

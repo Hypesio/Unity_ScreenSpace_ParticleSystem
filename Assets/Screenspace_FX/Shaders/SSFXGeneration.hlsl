@@ -6,9 +6,9 @@
 
 #define DEBUG_RENDER_MESH 0
 #if DEBUG_RENDER_MESH
-#define DEBUG_RENDER_MESH_COLOR half4(0, 1, 0, 0.0)
+    #define DEBUG_RENDER_MESH_COLOR half4(0, 1, 0, 0.0)
 #else
-#define DEBUG_RENDER_MESH_COLOR 
+    #define DEBUG_RENDER_MESH_COLOR 
 #endif
 
 uniform RWStructuredBuffer<ParticleDatas> _ParticlesDatasBuffer : register(u1);
@@ -22,30 +22,31 @@ SamplerState sampler_CameraColor;
 uniform Texture2D<float4> _GBuffer2;
 SamplerState sampler_GBuffer2;
 
-// Uniforms set from particle config
+// Uniforms set from SSFX particle system
 // indexConfig, durationMin, durationMax, SpawnRate
 uniform float4 _ParticleEmissionData;
 // minStartSize, maxStartSize, minStartSpeed, maxStartSpeed
 uniform float4 _ParticleEmissionData2;
+uniform float _PauseParticleSystem;
 
 // Uniforms set from mat
-uniform float _TimeProgressDisappear;
-uniform float _DurationDisappear;
+uniform float _TimeProgressEffect;
+uniform float _durationEffect;
 uniform Texture2D<float> _AlphaMap;
 float4 _AlphaMap_ST;
 SamplerState sampler_AlphaMap;
 
-float GetParticleDuration(float randomValue)
+inline float GetParticleDuration(float randomValue)
 {
     return lerp(_ParticleEmissionData.y, _ParticleEmissionData.z, randomValue);
 }
 
-float GetParticleInitialSpeed(float randomValue) 
+inline float GetParticleInitialSpeed(float randomValue) 
 {
     return lerp(_ParticleEmissionData2.z, _ParticleEmissionData2.w, randomValue);
 }
 
-float GetParticleInitialSize(float randomValue)
+inline float GetParticleInitialSize(float randomValue)
 {
     return lerp(_ParticleEmissionData2.x, _ParticleEmissionData2.y, randomValue);
 }
@@ -86,17 +87,20 @@ float4 fragSSFXGeneration(FragmentInputSSFXGeneration i) : SV_Target
 void fragSSFXGeneration(FragmentInputSSFXGeneration i)
 #endif
 {
+    if (_PauseParticleSystem)
+        return DEBUG_RENDER_MESH_COLOR;
+
     float randomFloat = RandomFloat(i.fragmentPosition.xy + float2(_Time.y, _Time.y));
 
     if (_ParticlesCounter >= _MaxParticlesCount || _ParticleEmissionData.w < randomFloat)
         return DEBUG_RENDER_MESH_COLOR;
 
-    float timePassed = _TimeProgressDisappear;
+    float timePassed = _TimeProgressEffect;
 
     // Check if the fragment will disappear in next frame
     // If visible now but not on next frame => Generate particles
-    float previousAlphaCutout = clamp(timePassed / _DurationDisappear, 0.0, 1.0);
-    float actualAlphaCutout = clamp((timePassed + unity_DeltaTime.x) / _DurationDisappear, 0.0, 1.0);
+    float previousAlphaCutout = clamp(timePassed / _durationEffect, 0.0, 1.0);
+    float actualAlphaCutout = clamp((timePassed + unity_DeltaTime.x) / _durationEffect, 0.0, 1.0);
 
     float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, i.uv, 0.0);
 
@@ -140,14 +144,14 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
 
 int IsPixelDiscard(float2 uv)
 {
-    float timePassed = _TimeProgressDisappear;
+    float timePassed = _TimeProgressEffect;
     if (timePassed > 0)
     {
-        if (timePassed > _DurationDisappear)
+        if (timePassed > _durationEffect)
             return 1;
 
         float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, uv, 0.0);
-        float actualAlphaCutout = clamp(timePassed / _DurationDisappear, 0.0, 1.0);
+        float actualAlphaCutout = clamp(timePassed / _durationEffect, 0.0, 1.0);
 
         if (alpha < actualAlphaCutout)
             return 1;
