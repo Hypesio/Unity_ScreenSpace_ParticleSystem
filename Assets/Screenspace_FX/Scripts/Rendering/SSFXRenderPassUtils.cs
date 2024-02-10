@@ -142,7 +142,6 @@ namespace SSFXParticles
             cmd.DispatchCompute(compute, setIndirectArgsKernelID, 1, 1, 1);
         }
 
-  
         public static void ComputeParticlesBufferUnion(CommandBuffer cmd, ParticlesBuffer datas, SSFXRenderPass.Settings settings)
         {
             ComputeShader compute = settings.particlesComputeShader;
@@ -169,7 +168,7 @@ namespace SSFXParticles
             ComputeBuffer configs = SSFX.SSFXParticleSystemHandler.UpdateConfigsComputeBuffer();
             if (configs != null)
                 compute.SetBuffer(simulationKernelID, "_ParticlesConfigs", configs);
-            
+
             if (settings.noiseMap != null)
             {
                 compute.SetTexture(simulationKernelID, "_NoiseMap", settings.noiseMap);
@@ -197,7 +196,5 @@ namespace SSFXParticles
             
             cmd.DrawMeshInstancedIndirect(settings.particlesMesh, 0, materialParticles, 0, datas.indirectDrawArgs);
         }
-
-
     }
 }

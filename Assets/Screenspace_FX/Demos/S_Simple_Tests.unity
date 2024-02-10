@@ -365,7 +365,6 @@ GameObject:
   - component: {fileID: 640795618}
   - component: {fileID: 640795617}
   - component: {fileID: 640795616}
-  - component: {fileID: 640795615}
   m_Layer: 0
   m_Name: Target
   m_TagString: Untagged
@@ -373,19 +372,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 0
---- !u!114 &640795615
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 640795614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 35e524a84e98bb64694831788bd97084, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _AttractionForce: 7
 --- !u!135 &640795616
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -953,9 +939,9 @@ MonoBehaviour:
   durationEffect: 5
   durationMin: 0.6
   durationMax: 5
-  particleSpawnRate: 0.1
-  minStartSpeed: 1
-  maxStartSpeed: 1.6
+  particleSpawnRate: 0.27
+  minStartSpeed: 46.62
+  maxStartSpeed: 72.23
   enableGravityModifier: 0
   gravityModifier: 0
   minStartSize: 0.01

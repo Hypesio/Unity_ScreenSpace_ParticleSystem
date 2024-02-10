@@ -1,8 +1,10 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 using System.Data;
+using Unity.VisualScripting;
+
 
 
 
@@ -12,22 +14,48 @@ using UnityEditor;
 public static class EditorUtils
 {
     private static double _LastFrameTime = 0;
+    private static float _EditorDeltaTime = 0;
+    private static float _TimeSinceStartup = 0;
+    private static float _TimeSpeed = 1;
+    
+    public static void UpdateTimePassed()
+    {
+        if (IsInEditMode())
+        {
+            #if UNITY_EDITOR
+            _EditorDeltaTime = (float)(EditorApplication.timeSinceStartup - _LastFrameTime);
+            _TimeSinceStartup += GetDeltaTime();
+            _LastFrameTime = EditorApplication.timeSinceStartup;
+            #endif
+        }
+        else
+        {
+            _TimeSinceStartup += GetDeltaTime();
+        }
+    }
+    public static float GetTimePassed()
+    {
+        return _TimeSinceStartup;
+    }
 
+    public static void SetTimeSpeed(float speed)
+    {
+        _TimeSpeed = speed;
+    }
 
     public static float GetDeltaTime()
     {
-        #if UNITY_EDITOR 
-        if (Application.isPlaying)
+        float res;
+        if (!IsInEditMode())
         {
-            return Time.deltaTime;
+            res = Time.deltaTime;
         }
-        
-        float deltatTime = (float)(EditorApplication.timeSinceStartup - _LastFrameTime);
-        _LastFrameTime = EditorApplication.timeSinceStartup;
-        return deltatTime > 1 ? 0 : deltatTime;
-        #else
-        return Time.deltaTime;
-        #endif 
+        else 
+        {
+            res = _EditorDeltaTime;
+        }
+
+        return res * _TimeSpeed;
     }
 
     public static bool IsInEditMode()

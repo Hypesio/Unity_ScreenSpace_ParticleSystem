@@ -1,6 +1,10 @@
 #ifndef PARTICLES_COMMONS
 #define PARTICLES_COMMONS
 
+// x = time since startup in second, 
+// y = deltatime 
+uniform float4 _Time_SSFX; 
+
 struct ParticleDatas
 {
     float4 worldPosition;
@@ -22,7 +26,7 @@ struct ParticleDatas
 #define FLAG_SIZE_OVER_LIFETIME (1 << 4)
 #define FLAG_TARGET (1 << 5)
 #define FLAG_SPEED_OVER_LIFETIME (1 << 6)
-#define FLAG_PAUSE_SIMULATION (1 << 7)
+#define FLAG_KILL_ALL (1 << 7)
 
 struct ParticlesConfig {
     // used to tell in shader what to use or not

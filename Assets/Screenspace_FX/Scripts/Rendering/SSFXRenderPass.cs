@@ -8,6 +8,7 @@ using System.Data;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using Unity.Mathematics;
+using UnityEditor;
 
 public class SSFXRenderPass : ScriptableRendererFeature
 {
@@ -102,6 +103,9 @@ public class SSFXRenderPass : ScriptableRendererFeature
                 everything under the correct title.
                 */
 
+                EditorUtils.UpdateTimePassed();
+                cmd.SetGlobalVector("_Time_SSFX", new Vector4(EditorUtils.GetTimePassed(), EditorUtils.GetDeltaTime(), 0, 0));
+
                 SSFXRenderPassUtils.CheckResources(ref ssfxDatas, settings);
                 SortingCriteria sortingCriteria = renderingData.cameraData.defaultOpaqueSortFlags;
                 DrawingSettings drawingSettings = CreateDrawingSettings(shaderTagsList, ref renderingData, sortingCriteria);
@@ -131,6 +135,7 @@ public class SSFXRenderPass : ScriptableRendererFeature
                 SSFXRenderPassUtils.RenderParticles(cmd, ssfxDatas, settings);
                 
                 ssfxDatas.actualFrame += 1;
+
                 
                 ComputeBuffer tmp = ssfxDatas.previousParticlesDatasBuffer;
                 ssfxDatas.previousParticlesDatasBuffer = ssfxDatas.particlesDatasBuffer;

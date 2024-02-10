@@ -17,8 +17,7 @@ This table will be updated when i'll have time to test versions and based on you
 ### Import steps
 
 1. Enable ‘**Allow Unsafe Code**’ in Project Settings > Player > Other Settings
-2. Download **Editor Coroutines** using Package Manager (*com.unity.editorcoroutines*)
-3. Import package
-4. In Project Settings > Graphics, set ‘Scriptable Render Pipeline Settings’ asset to URP-SSFX-HighFidelity (or just reproduce the custom pass in it in your own URP renderer asset)
-5. Do the same in Project Settings > Quality on the quality level of your choice.
-6. Enjoy 🥳
+2. Import package
+3. In Project Settings > Graphics, set ‘Scriptable Render Pipeline Settings’ asset to URP-SSFX-HighFidelity (or just reproduce the custom pass in it in your own URP renderer asset)
+4. Do the same in Project Settings > Quality on the quality level of your choice.
+5. Enjoy 🥳

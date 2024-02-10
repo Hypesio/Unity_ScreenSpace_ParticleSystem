@@ -90,17 +90,20 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
     if (_PauseParticleSystem)
         return DEBUG_RENDER_MESH_COLOR;
 
-    float randomFloat = RandomFloat(i.fragmentPosition.xy + float2(_Time.y, _Time.y));
+    float randomFloat = RandomFloat(i.fragmentPosition.xy + float2(_Time_SSFX.x, _Time_SSFX.x));
 
     if (_ParticlesCounter >= _MaxParticlesCount || _ParticleEmissionData.w < randomFloat)
         return DEBUG_RENDER_MESH_COLOR;
 
     float timePassed = _TimeProgressEffect;
 
+    if (timePassed <= 0)
+        return DEBUG_RENDER_MESH_COLOR;
+
     // Check if the fragment will disappear in next frame
     // If visible now but not on next frame => Generate particles
-    float previousAlphaCutout = clamp(timePassed / _durationEffect, 0.0, 1.0);
-    float actualAlphaCutout = clamp((timePassed + unity_DeltaTime.x) / _durationEffect, 0.0, 1.0);
+    float previousAlphaCutout = saturate(timePassed / _durationEffect);
+    float actualAlphaCutout = saturate((timePassed + _Time_SSFX.y) / _durationEffect);
 
     float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, i.uv, 0.0);
 
@@ -127,7 +130,7 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
             particle.normal = i.fragNormal;
         #endif
 
-        particle.timeApparition = _Time.y;
+        particle.timeApparition = _Time_SSFX.x;
         particle.duration = GetParticleDuration(RandomFloat(i.fragmentPosition.xy));
         float2 randomValue = RandomFloat2(fragCoords);
         particle.speed = normalize(particle.normal + float3(randomValue.xy, (randomValue.x + randomValue.y) / 2.0));
@@ -151,7 +154,7 @@ int IsPixelDiscard(float2 uv)
             return 1;
 
         float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, uv, 0.0);
-        float actualAlphaCutout = clamp(timePassed / _durationEffect, 0.0, 1.0);
+        float actualAlphaCutout = saturate(timePassed / _durationEffect);
 
         if (alpha < actualAlphaCutout)
             return 1;

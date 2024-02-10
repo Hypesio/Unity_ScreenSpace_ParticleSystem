@@ -1,9 +1,6 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace SSFX {
@@ -17,7 +14,7 @@ namespace SSFX {
         SizeOverLifetime = 1 << 4,
         Target = 1 << 5,
         SpeedOverLifetime = 1 << 6,
-        PauseSimulation = 1 << 7,
+        KillAll = 1 << 7,
     }
 
     unsafe public struct SSFXParticleConfig {
@@ -41,18 +38,27 @@ namespace SSFX {
     public static class SSFXParticleSystemHandler
     {
         private static int MAX_GRADIENT_KEYS = 10;
-        private static List<SSFXParticleConfig> _configs;
-        private static List<Transform> _configsTargets;
-        private static ComputeBuffer _configsBuffer;
+        private static List<SSFXParticleConfig> _configs = null;
+        private static List<Transform> _configsTargets = null;
+        private static ComputeBuffer _configsBuffer = null;
+
+        // Used to know when _configs data need to be updated on GPU
+        // Set to true on _configs changes
+        private static bool _dirtyConfigs = false;
 
         private static int AddConfig(SSFXParticleConfig config)
         {
             if (_configs == null)
             {
                 _configs = new List<SSFXParticleConfig>();
+                _configs.Add(new SSFXParticleConfig{});
+
+                _configsTargets = new List<Transform>();
+                _configsTargets.Add(null);
             }
 
             _configs.Add(config);
+            _configsTargets.Add(null);
             return _configs.Count() - 1;
         }
         unsafe private static bool SequenceEqual(float* a, float* b, int size)
@@ -94,28 +100,26 @@ namespace SSFX {
             }
         }
 
-        public static void SetConfigPauseState(int configID, bool pause)
+        public static void ClearConfigParticles(int configID)
         {
             if (configID >= _configs.Count() && configID >= 0)
             {
-                Debug.LogWarning("[SSFX] You are trying to set pause state of an out of bound config");
+                Debug.LogWarning("[SSFX] You are trying to clear an out of bound config");
                 return;
             }
 
             SSFXParticleConfig conf = _configs[configID];
 
-            if (pause)
-                conf.flagsFeature |= (int)SSFXParticleSystemFlags.PauseSimulation;
-            else if  (!pause && (conf.flagsFeature & (int)SSFXParticleSystemFlags.PauseSimulation) != 0)   
-                conf.flagsFeature ^= (int)SSFXParticleSystemFlags.PauseSimulation;
+            conf.flagsFeature |= (int)SSFXParticleSystemFlags.KillAll;
             
             _configs[configID] = conf;
+            _dirtyConfigs = true;
         }
 
 
         unsafe public static void UpdateConfig(int configID, float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
         {
-              SSFXParticleConfig config = new SSFXParticleConfig{};
+            SSFXParticleConfig config = new SSFXParticleConfig{};
 
             if (gravityModifierEnable) {
                 config.gravity = gravity;
@@ -200,70 +204,68 @@ namespace SSFX {
             }
 
             {
-                if (_configsTargets == null)
-                    _configsTargets = new List<Transform>();
-                    
-                if (configID >= _configsTargets.Count())
-                    _configsTargets.Add(targetTransform);
-                else 
-                    _configsTargets[configID] = targetTransform;
+                _configsTargets[configID] = targetTransform;
             }
-
+            _configs[configID] = config;
+            _dirtyConfigs = true;
         }
 
         // Return the index of the particle config
         // Will create a new config only if it doesn't already exist
         unsafe public static int NewConfig(float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
         {
-            
             SSFXParticleConfig config = new SSFXParticleConfig{};
             int index_config = AddConfig(config);
-            Debug.Log($"New guy {index_config}");
             UpdateConfig(index_config, gravity, gravityModifierEnable, colorOverLifetime, sizeOverLifetime, speedOverLifetime, targetTransform, attractionForce);
 
             return index_config;
         }
 
-        // This should be done only once per game session
+        // Create or update size of compute buffer if needed
         public static ComputeBuffer CreateConfigsComputeBuffer()
         {
-            if (_configsBuffer != null)
-            {
+            if (_configsBuffer != null && _configs != null && _configs.Count >= _configsBuffer.count)
                 _configsBuffer.Release();
-            }
-            if (_configs != null)
-            {
-                _configsBuffer = new ComputeBuffer(_configs.Count(), Marshal.SizeOf(typeof(SSFXParticleConfig)), ComputeBufferType.Structured);
+            else if (_configsBuffer != null && (_configs == null || _configs.Count < _configsBuffer.count))
                 return _configsBuffer;
-            }
-            return null;
+
+            if (_configs != null)
+                _configsBuffer = new ComputeBuffer(_configs.Count() * 2, Marshal.SizeOf(typeof(SSFXParticleConfig)), ComputeBufferType.Structured);
+            else 
+                _configsBuffer = new ComputeBuffer(10, Marshal.SizeOf(typeof(SSFXParticleConfig)), ComputeBufferType.Structured);
+
+            return _configsBuffer;
         }
 
         // This should be done as rarely as possible 
         public static ComputeBuffer UpdateConfigsComputeBuffer()
         {
-            if (_configsBuffer == null)
-                if (CreateConfigsComputeBuffer() == null)
-                    return null;
+            _configsBuffer = CreateConfigsComputeBuffer();
+                
+            if (_configs == null)
+                return _configsBuffer;
             
             // Update target position if needed
-            bool updated = false;
-            for (int i = 0; i < _configs.Count(); i++)
+            for (int i = 1; i < _configs.Count(); i++)
             {
                 if (_configsTargets != null && _configsTargets[i] != null) 
                 {
-                    updated = true;
                     Vector3 tarPos = _configsTargets[i].position;
                     SSFXParticleConfig conf = _configs[i];
-                    conf.targetDatas = new Vector4(tarPos.x, tarPos.y, tarPos.z, _configs[i].targetDatas.w);
-                    _configs[i] = conf;
+                    if (tarPos != (Vector3)conf.targetDatas)
+                    {
+                        _dirtyConfigs = true;
+                        conf.targetDatas = new Vector4(tarPos.x, tarPos.y, tarPos.z, _configs[i].targetDatas.w);
+                        _configs[i] = conf;
+                    }
                 }
             }
 
-            Debug.Log($"Config len {_configs.Count()}");
-            
-            if(updated)
+            if(_dirtyConfigs)
+            {
                 _configsBuffer.SetData(_configs);
+                _dirtyConfigs = false;
+            }
 
             return _configsBuffer;
         }

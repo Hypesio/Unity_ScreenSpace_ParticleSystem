@@ -44,10 +44,23 @@ Shader "Hypesio/Particles"
 			{
 				FragmentInput o = (FragmentInput)0;
 
+                // Warning models matrix are invalid in case of DispatchIndirect
                 ParticleDatas particle = _ParticlesDatasBuffer[instance_id];
-                float3 worldPosition = particle.worldPosition.xyz + (i.vertexPosition.xyz * particle.size);
-                o.position = TransformWorldToHClip(worldPosition);
+                float3 worldPosition;
+                
+                // No bilboard 
+                //float3 worldPosition = particle.worldPosition.xyz + (i.vertexPosition.xyz * particle.size);
+                //o.position = TransformWorldToHClip(worldPosition);
+
+                // SphericalBilboarding
+				float3 vpos = (i.vertexPosition.xyz  * particle.size);
+				float4 worldCoord = particle.worldPosition;
+				float4 viewPos = mul(UNITY_MATRIX_V, worldCoord) + float4(vpos, 0);
+                worldPosition = mul(UNITY_MATRIX_I_V, viewPos);
+
                 o.color = particle.color;
+                o.position = TransformWorldToHClip(worldPosition);
+                
 				return o;
 			}
 

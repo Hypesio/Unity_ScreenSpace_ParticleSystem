@@ -2,7 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using SSFX;
 using UnityEngine;
+using UnityEditor.PackageManager.Requests;
 
+[ExecuteAlways]
 public class SSFXParticleSystem : MonoBehaviour
 {
     [Header("Materials")]
@@ -34,8 +36,8 @@ public class SSFXParticleSystem : MonoBehaviour
     private Material[] _mats;    
     private float _durationEffect;
     private float _timeCounter;
-    private bool _paused = false;
-    private int _indexConfig = -1;
+    private int _indexConfig = 0;
+    private bool _reseted = false;
 
     // Start is called before the first frame update
     void Start()
@@ -45,41 +47,42 @@ public class SSFXParticleSystem : MonoBehaviour
         else 
             _mats = meshRenderer.materials;
 
-
         UpdateConfig();
     }
 
     void Update()
     {
         if (isPlaying)
+        {
             UpdateEffect();
+        }
     }
 
-    void UpdateEffect()
+    public void UpdateEffect()
     {
-        if (_paused)
-            return;
-        if (_timeCounter >= _durationEffect)
+        if (_timeCounter >= (_durationEffect + durationMax))
         {
             isPlaying = false;
             _timeCounter = 0;
         }
 
-        _timeCounter += EditorUtils.GetDeltaTime();
+        _timeCounter += EditorUtils.GetDeltaTime();  
+
         foreach (Material mat in _mats)
         {
             mat.SetFloat("_TimeProgressEffect", _timeCounter);
-        }            
+        }        
     }
 
     public void UpdateConfig()
     {
         if (EditorUtils.IsInEditMode())
             _mats = meshRenderer.sharedMaterials;
-        if (_indexConfig == -1)
+        if (_indexConfig == 0)
             _indexConfig =  SSFXParticleSystemHandler.NewConfig(gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce);
         else 
             SSFXParticleSystemHandler.UpdateConfig(_indexConfig, gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce);
+        
         foreach (var mat in _mats)
         {
             mat.SetVector("_ParticleEmissionData", new Vector4(_indexConfig, durationMin, durationMax, particleSpawnRate));
@@ -89,10 +92,12 @@ public class SSFXParticleSystem : MonoBehaviour
 
     public void StartEffect(float duration = -1)
     {
-        if (_indexConfig == -1)
+        if (_indexConfig == 0 || _reseted)
+        {
+            _reseted = false;
             UpdateConfig();
+        }
 
-        _paused = false;
         _durationEffect = duration < 0 ? durationEffect : duration;
         
         #if UNITY_EDITOR
@@ -105,7 +110,6 @@ public class SSFXParticleSystem : MonoBehaviour
             mat.SetFloat("_durationEffect", _durationEffect);
             mat.SetFloat("_PauseParticleSystem", 0);
         }
-        SSFXParticleSystemHandler.SetConfigPauseState(_indexConfig, false);
         isPlaying = true;
     }
 
@@ -118,8 +122,6 @@ public class SSFXParticleSystem : MonoBehaviour
         {
             mat.SetFloat("_PauseParticleSystem", 1);
         }
-        SSFXParticleSystemHandler.SetConfigPauseState(_indexConfig, true);
-        _paused = true;
     }
 
     public void PlayEffect()
@@ -134,22 +136,21 @@ public class SSFXParticleSystem : MonoBehaviour
         {
             mat.SetFloat("_PauseParticleSystem", 0);
         }
-        SSFXParticleSystemHandler.SetConfigPauseState(_indexConfig, false);
-        _paused = false;
     }
     
     public void ResetEffect() 
     {   
         if (_mats == null)
             return;
-        _timeCounter = durationEffect;
+        _reseted = true;
+        _timeCounter = 0;
+        SSFXParticleSystemHandler.ClearConfigParticles(_indexConfig);
         UpdateEffect();
+        isPlaying = false;
     }
 
     public float GetEffectProgress()
     {
-        return _timeCounter / _durationEffect;
+        return _timeCounter / (_durationEffect + durationMax);
     }
-
-
 }

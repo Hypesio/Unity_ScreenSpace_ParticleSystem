@@ -1,8 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using Codice.CM.Client.Gui;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.UI;
 
 [CustomEditor(typeof(SSFXParticleSystem))]
 public class EditorSSFXParticleSystem : Editor 
@@ -25,6 +27,8 @@ public class EditorSSFXParticleSystem : Editor
     private GUIStyle centeredStyle;
 
     private bool initDone = false;
+
+    public override bool RequiresConstantRepaint() => IsEffectPlaying();
 
     void OnEnable()
     {
@@ -58,7 +62,7 @@ public class EditorSSFXParticleSystem : Editor
 
         buttonPressedStyle = new GUIStyle(GUI.skin.button);
         buttonPressedStyle.fontStyle = FontStyle.Bold;
-        buttonPressedStyle.normal = buttonPressedStyle.active;
+        buttonPressedStyle.normal.textColor = Color.green;
 
         initDone = true;
     }
@@ -86,7 +90,9 @@ public class EditorSSFXParticleSystem : Editor
         GUILayout.Space(5);
         GUILayout.Label("Play effect", headerStyleH2);
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Once"))
+
+        GUIStyle onceStyle = effectState == EffectState.Playing ? buttonPressedStyle : GUI.skin.button;
+        if (GUILayout.Button("Once", onceStyle))
         {
             targetScript.StartEffect();
             effectState = EffectState.Playing;
@@ -108,26 +114,39 @@ public class EditorSSFXParticleSystem : Editor
         {
             targetScript.PauseEffect();
             paused = true;
+            EditorUtils.SetTimeSpeed(0);
         }
         
-        if (paused && GUILayout.Button("Resume"))
+        if (paused && IsEffectPlaying() && GUILayout.Button("Resume"))
         {
             targetScript.PlayEffect();
+            paused = false;
+            EditorUtils.SetTimeSpeed(1);
+        }
+
+        if (!IsEffectPlaying() && paused)
+        {
+            paused = false;
+            EditorUtils.SetTimeSpeed(1);
         }
         
+        bool resetThisFrame = false;
         if (effectState != EffectState.None && GUILayout.Button("Reset"))
         {
             targetScript.ResetEffect();
             effectState = EffectState.None;
+            EditorUtils.SetTimeSpeed(1);
+            paused = false;
+            resetThisFrame = true;
         }
+
         GUILayout.EndHorizontal();
 
     
         if (IsEffectPlaying())
         {
-            GUILayout.Label($"Progress {targetScript.GetEffectProgress()}%", centeredStyle);
+            GUILayout.Label($"Progress {targetScript.GetEffectProgress().ToString("0.00")}%", centeredStyle);
         }
-
 
         GUILayout.Space(10);
         GUILayout.Label("Options", headerStyleH2);
@@ -137,12 +156,7 @@ public class EditorSSFXParticleSystem : Editor
 
         UpdateSystemState();
 
-        if (IsEffectPlaying())
-        {
-           Repaint();
-        }
-
-        if (GUI.changed)
+        if (!resetThisFrame && GUI.changed)
         {
             targetScript.UpdateConfig();
         }

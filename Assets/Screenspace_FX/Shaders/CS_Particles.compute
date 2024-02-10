@@ -39,11 +39,8 @@ uniform float4 _TargetPosition;
 // XYZ = Position, W = TargetAttractionForce
 uniform float4 _ParticlesTarget;
 
-uniform RWBuffer<int> _IndirectArgs; // buffer union args, simulation args 
+uniform RWBuffer<int> _IndirectArgs; // buffer union args, simulation args
 
-// Global uniforms set by Unity
-uniform float4 _Time; // (t/20, t, t*2, t*3)
-uniform float unity_DeltaTime;
 #define TRANSFORM_TEX(tex,name) (tex.xy * name##_ST.xy + name##_ST.zw)
 
 /** 
@@ -81,10 +78,14 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
     ParticleDatas datas = _ParticlesDatasBuffer[particleIndex]; 
     ParticlesConfig config = _ParticlesConfigs[datas.indexConfig];
 
-    if (config.flagsFeature & FLAG_PAUSE_SIMULATION)
+    if (config.flagsFeature & FLAG_KILL_ALL)
+    {
+        datas.duration = -1;
+        _ParticlesDatasBuffer[particleIndex] = datas;
         return;
+    }
     
-    float timeLived = _Time.y - datas.timeApparition;
+    float timeLived = _Time_SSFX.x - datas.timeApparition;
     float lifeProgress = timeLived / datas.duration;
     {
         datas.size = datas.startSize;//* GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
@@ -94,19 +95,19 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
     {
         float2 uv = datas.worldPosition.xy * _NoiseMap_ST.xy;
         float3 flowSpeed = (_NoiseMap.SampleLevel(sampler_NoiseMap, uv, 0.0).xyz - 1.0) * 2.0;
-        float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * unity_DeltaTime;
+        float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * _Time_SSFX.y;
         
         // Move to target
         float3 directionToTarget = _ParticlesTarget.xyz - datas.worldPosition.xyz;
         float distanceInfluenceTargetAttraction = lerp(_ParticlesTarget.w, 0, clamp(pow(length(directionToTarget), 2.0) / 30, 0.0, 1.0));
-        newSpeed += directionToTarget * distanceInfluenceTargetAttraction * unity_DeltaTime;
+        /*newSpeed += directionToTarget * distanceInfluenceTargetAttraction * _Time_SSFX.y;
         
         if (length(newSpeed) > _SimulationBase.z)
             newSpeed = normalize(newSpeed) * _SimulationBase.z;
         datas.speed = lerp(datas.speed, newSpeed, 0.2);
         if (length(datas.speed) > _SimulationBase.z)
-            datas.speed = normalize(datas.speed) * _SimulationBase.z;
-        datas.worldPosition += float4(datas.speed, 0);
+            datas.speed = normalize(datas.speed) * _SimulationBase.z;*/
+        datas.worldPosition += float4(datas.speed * _Time_SSFX.y, 0);
         datas.worldPosition.y = max(datas.worldPosition.y, _SimulationBase.y);
     }
 //    else 
@@ -134,9 +135,10 @@ void CSBufferUnion (uint id : SV_DispatchThreadID)
         return;
 
     ParticleDatas particle = _PreviousParticlesDatasBuffer[bufferIndex];
-    float timeLived = _Time.y - particle.timeApparition;
-    if (timeLived < particle.duration) // Check if the particle is still alive
+    float timeLived = _Time_SSFX.y - particle.timeApparition;
+    if (timeLived < particle.duration && particle.duration > 0) 
     {
+        // Check if the particle is still alive
         int indexNewBuffer;
         InterlockedAdd(_ParticlesCounter, 1, indexNewBuffer);
         if (indexNewBuffer >= _MaxParticlesCount)
