@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using UnityEditor.Rendering;
 using UnityEngine;
 
 namespace SSFX {
@@ -15,6 +16,7 @@ namespace SSFX {
         Target = 1 << 5,
         SpeedOverLifetime = 1 << 6,
         KillAll = 1 << 7,
+        TargetDieOnReach = 1 << 8,
     }
 
     unsafe public struct SSFXParticleConfig {
@@ -38,6 +40,7 @@ namespace SSFX {
     public static class SSFXParticleSystemHandler
     {
         private static int MAX_GRADIENT_KEYS = 10;
+        private static int INVALID_FLOAT = 65536;
         private static List<SSFXParticleConfig> _configs = null;
         private static List<Transform> _configsTargets = null;
         private static ComputeBuffer _configsBuffer = null;
@@ -117,7 +120,7 @@ namespace SSFX {
         }
 
 
-        unsafe public static void UpdateConfig(int configID, float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
+        unsafe public static void UpdateConfig(int configID, float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce, bool dieOnReach)
         {
             SSFXParticleConfig config = new SSFXParticleConfig{};
 
@@ -126,10 +129,16 @@ namespace SSFX {
                 config.flagsFeature &= (int)SSFXParticleSystemFlags.GravityModifier;
             }
             
+
+            // Target 
             if (targetTransform != null) {
                 Vector3 targetPos = targetTransform.position;
                 config.targetDatas = new Vector4(targetPos.x, targetPos.y, targetPos.z, attractionForce);
+                
                 config.flagsFeature |= (int)SSFXParticleSystemFlags.Target;
+                _configsTargets[configID] = targetTransform;
+                if (dieOnReach)
+                    config.flagsFeature |= (int)SSFXParticleSystemFlags.TargetDieOnReach;
             }
             
             if (colorOverLifetime.alphaKeys.Count() > 0)
@@ -148,6 +157,10 @@ namespace SSFX {
 
                     index_key ++;
                 } 
+                for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
+                {
+                    config.grad_colorOverLifetime[index_key * 4 + 3] = INVALID_FLOAT;
+                }
 
                 config.flagsFeature |= (int)SSFXParticleSystemFlags.ColorOverLifetime;
             }
@@ -166,6 +179,11 @@ namespace SSFX {
 
                     index_key ++;
                 } 
+                for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
+                {
+                    config.grad_alphaOverLifetime[index_key * 2 + 1] = INVALID_FLOAT;
+                }
+
                 config.flagsFeature |= (int)SSFXParticleSystemFlags.AlphaOverLifetime;
             }
 
@@ -183,6 +201,10 @@ namespace SSFX {
 
                     index_key ++;
                 } 
+                for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
+                {
+                    config.grad_sizeOverLifetime[index_key * 2 + 1] = INVALID_FLOAT;
+                }
                 config.flagsFeature |= (int)SSFXParticleSystemFlags.SizeOverLifetime;
             }
 
@@ -200,23 +222,24 @@ namespace SSFX {
 
                     index_key ++;
                 } 
+                for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
+                {
+                    config.grad_speedOverLifetime[index_key * 2 + 1] = INVALID_FLOAT;
+                }
                 config.flagsFeature |= (int)SSFXParticleSystemFlags.SpeedOverLifetime;
             }
 
-            {
-                _configsTargets[configID] = targetTransform;
-            }
             _configs[configID] = config;
             _dirtyConfigs = true;
         }
 
         // Return the index of the particle config
         // Will create a new config only if it doesn't already exist
-        unsafe public static int NewConfig(float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce)
+        unsafe public static int NewConfig(float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce, bool dieOnReach)
         {
             SSFXParticleConfig config = new SSFXParticleConfig{};
             int index_config = AddConfig(config);
-            UpdateConfig(index_config, gravity, gravityModifierEnable, colorOverLifetime, sizeOverLifetime, speedOverLifetime, targetTransform, attractionForce);
+            UpdateConfig(index_config, gravity, gravityModifierEnable, colorOverLifetime, sizeOverLifetime, speedOverLifetime, targetTransform, attractionForce, dieOnReach);
 
             return index_config;
         }

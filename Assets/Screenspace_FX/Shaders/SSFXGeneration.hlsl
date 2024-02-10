@@ -27,7 +27,8 @@ SamplerState sampler_GBuffer2;
 uniform float4 _ParticleEmissionData;
 // minStartSize, maxStartSize, minStartSpeed, maxStartSpeed
 uniform float4 _ParticleEmissionData2;
-uniform float _PauseParticleSystem;
+// startSpeedType, ?, ?, ?
+uniform float4 _ParticleEmissionData3;
 
 // Uniforms set from mat
 uniform float _TimeProgressEffect;
@@ -35,6 +36,19 @@ uniform float _durationEffect;
 uniform Texture2D<float> _AlphaMap;
 float4 _AlphaMap_ST;
 SamplerState sampler_AlphaMap;
+
+inline float3 GetStartSpeedDirection(float3 normal, float3 localPosition)
+{
+    if (_ParticleEmissionData3.x == 0)
+        return normal;
+    if (_ParticleEmissionData3.x == 1)
+        return localPosition;
+    if (_ParticleEmissionData3.x == 2)
+        return -localPosition;
+    if (_ParticleEmissionData3.x == 3)
+        return float3(_ParticleEmissionData3.y, _ParticleEmissionData3.z, _ParticleEmissionData3.w);
+    return 0;
+}
 
 inline float GetParticleDuration(float randomValue)
 {
@@ -63,6 +77,7 @@ struct FragmentInputSSFXGeneration
     float4 fragmentPosition  : SV_POSITION;
     float3 worldPosition : TEXCOORD0;
     float2 uv : TEXCOORD1;
+    float3 localPosition : TEXCOORD2;
     float3 fragNormal : NORMAL;
 };            
 
@@ -74,6 +89,7 @@ FragmentInputSSFXGeneration vertSSFXGeneration(VertexInputSSFXGeneration i)
     o.fragmentPosition = TransformWorldToHClip(o.worldPosition);
     o.uv = TRANSFORM_TEX(i.uv, _AlphaMap);
     o.fragNormal = i.vertexNormal;
+    o.localPosition = i.vertexPosition;
     return o;
 }
 
@@ -87,9 +103,6 @@ float4 fragSSFXGeneration(FragmentInputSSFXGeneration i) : SV_Target
 void fragSSFXGeneration(FragmentInputSSFXGeneration i)
 #endif
 {
-    if (_PauseParticleSystem)
-        return DEBUG_RENDER_MESH_COLOR;
-
     float randomFloat = RandomFloat(i.fragmentPosition.xy + float2(_Time_SSFX.x, _Time_SSFX.x));
 
     if (_ParticlesCounter >= _MaxParticlesCount || _ParticleEmissionData.w < randomFloat)
@@ -133,9 +146,10 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
         particle.timeApparition = _Time_SSFX.x;
         particle.duration = GetParticleDuration(RandomFloat(i.fragmentPosition.xy));
         float2 randomValue = RandomFloat2(fragCoords);
-        particle.speed = normalize(particle.normal + float3(randomValue.xy, (randomValue.x + randomValue.y) / 2.0));
+        
         particle.indexConfig = _ParticleEmissionData.x;
-        particle.startSpeed = GetParticleInitialSpeed(RandomFloat(i.fragmentPosition.xy * 2.0));
+        particle.startSpeed = _ParticleEmissionData2.z;//GetParticleInitialSpeed(RandomFloat(i.fragmentPosition.xy * 2.0));
+        particle.speed = normalize(GetStartSpeedDirection(particle.normal, i.localPosition)) * particle.startSpeed;
         particle.startSize = GetParticleInitialSize(RandomFloat(i.fragmentPosition.xy * 5.0)); 
         particle.size = particle.startSize;
         _ParticlesDatasBuffer[index] = particle;

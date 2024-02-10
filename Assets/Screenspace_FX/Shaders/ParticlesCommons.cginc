@@ -27,6 +27,7 @@ struct ParticleDatas
 #define FLAG_TARGET (1 << 5)
 #define FLAG_SPEED_OVER_LIFETIME (1 << 6)
 #define FLAG_KILL_ALL (1 << 7)
+#define FLAG_TARGET_DIE_ON_REACH (1 << 8)
 
 struct ParticlesConfig {
     // used to tell in shader what to use or not

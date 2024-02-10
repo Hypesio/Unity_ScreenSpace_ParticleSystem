@@ -3,6 +3,9 @@
 
 #include "ParticlesCommons.cginc"
 
+// Arbitrary value, curves should never reach this value
+#define INVALID_FLOAT 65536 
+
 // Used for data handle with animation curve (one float for value and one for step)
 // Used for alpha, size and speed
 float GetCurveValue(float2 values[SSFX_MAX_GRAD_KEYS], float lerpValue)
@@ -11,9 +14,11 @@ float GetCurveValue(float2 values[SSFX_MAX_GRAD_KEYS], float lerpValue)
     float2 step_progress = 0;
     int step_index = 0;
     step_progress = values[step_index];
-    while (step_progress.y < lerpValue)
+    while (step_index < SSFX_MAX_GRAD_KEYS && step_progress.y < lerpValue)
     {
         step_index++;
+        if (values[step_index].y >= INVALID_FLOAT)
+            break; 
         step_progress = values[step_index];
     }
 
@@ -31,9 +36,11 @@ float3 GetCurveColor(float4 values[SSFX_MAX_GRAD_KEYS], float lerpValue)
     float4 step_progress = 0;
     int step_index = 0;
     step_progress = values[step_index];
-    while (step_progress.w < lerpValue)
+    while (step_index < SSFX_MAX_GRAD_KEYS && step_progress.w < lerpValue)
     {
         step_index++;
+        if (values[step_index].w >= INVALID_FLOAT)
+            break; 
         step_progress = values[step_index];
     }
 

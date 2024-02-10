@@ -7,6 +7,15 @@ using UnityEditor.PackageManager.Requests;
 [ExecuteAlways]
 public class SSFXParticleSystem : MonoBehaviour
 {
+    public enum StartSpeedType 
+    {
+        Normal = 0, 
+        FromMeshCenter = 1, 
+        ToMeshCenter = 2,
+        StartDirection = 3,
+        None = 3,
+    }
+
     [Header("Materials")]
     public float durationEffect;
 
@@ -14,6 +23,9 @@ public class SSFXParticleSystem : MonoBehaviour
     public float durationMin = 1.0f;
     public float durationMax = 1.0f;
     public float particleSpawnRate = 0.2f;
+    public StartSpeedType startSpeedType = StartSpeedType.FromMeshCenter;
+    [Tooltip("Taken into account only if startSpeedType is set to StartDirection")]
+    public Vector3 startDirection;
     public float minStartSpeed = 1.0f;
     public float maxStartSpeed = 1.2f;
     public bool enableGravityModifier = false;
@@ -25,6 +37,8 @@ public class SSFXParticleSystem : MonoBehaviour
     public Gradient colorOverLifetime;
     public Transform particlesTarget;
     public float particlesTargetAttractionForce;
+    public bool particleDieWhenReachingTarget = true;
+    
 
     [Space]
     public MeshRenderer meshRenderer;
@@ -79,14 +93,15 @@ public class SSFXParticleSystem : MonoBehaviour
         if (EditorUtils.IsInEditMode())
             _mats = meshRenderer.sharedMaterials;
         if (_indexConfig == 0)
-            _indexConfig =  SSFXParticleSystemHandler.NewConfig(gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce);
+            _indexConfig =  SSFXParticleSystemHandler.NewConfig(gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce, particleDieWhenReachingTarget);
         else 
-            SSFXParticleSystemHandler.UpdateConfig(_indexConfig, gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce);
+            SSFXParticleSystemHandler.UpdateConfig(_indexConfig, gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce, particleDieWhenReachingTarget);
         
         foreach (var mat in _mats)
         {
             mat.SetVector("_ParticleEmissionData", new Vector4(_indexConfig, durationMin, durationMax, particleSpawnRate));
             mat.SetVector("_ParticleEmissionData2", new Vector4(minStartSize, maxStartSize, minStartSpeed, maxStartSpeed));
+            mat.SetVector("_ParticleEmissionData3", new Vector4((float)startSpeedType, startDirection.x, startDirection.y, startDirection.z));
         }
     }
 

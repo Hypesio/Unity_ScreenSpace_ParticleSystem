@@ -91,24 +91,49 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         datas.size = datas.startSize;//* GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
     }
 
-    if (datas.worldPosition.y > _SimulationBase.y)
+    //if (datas.worldPosition.y > _SimulationBase.y)
     {
         float2 uv = datas.worldPosition.xy * _NoiseMap_ST.xy;
-        float3 flowSpeed = (_NoiseMap.SampleLevel(sampler_NoiseMap, uv, 0.0).xyz - 1.0) * 2.0;
-        float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * _Time_SSFX.y;
         
+        // Size over lifetime
+        if (config.flagsFeature & FLAG_SIZE_OVER_LIFETIME)
+        {
+            datas.speed = normalize(datas.speed) * datas.startSpeed * GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
+        }
+
+        float lenSpeed = length(datas.speed);
+
         // Move to target
-        float3 directionToTarget = _ParticlesTarget.xyz - datas.worldPosition.xyz;
-        float distanceInfluenceTargetAttraction = lerp(_ParticlesTarget.w, 0, clamp(pow(length(directionToTarget), 2.0) / 30, 0.0, 1.0));
-        /*newSpeed += directionToTarget * distanceInfluenceTargetAttraction * _Time_SSFX.y;
+        if (config.flagsFeature & FLAG_TARGET)
+        {
+            float3 directionToTarget = config.targetDatas.xyz - datas.worldPosition.xyz;
+            float particleDistToTarget = length(directionToTarget);
+            
+            if (config.flagsFeature & FLAG_TARGET_DIE_ON_REACH && particleDistToTarget < lenSpeed * _Time_SSFX.y)
+                datas.duration = -1;
+
+            float3 speedToTarget = normalize(directionToTarget) * lenSpeed;
+            datas.speed = normalize(lerp(datas.speed, speedToTarget, config.targetDatas.w * _Time_SSFX.y)) * lenSpeed;
+            
+            //if (lenSpeed > particleDistToTarget)
+            //    datas.speed = normalize(datas.speed) * particleDistToTarget;
+        }
+
+
+
+        //float3 flowSpeed = (_NoiseMap.SampleLevel(sampler_NoiseMap, uv, 0.0).xyz - 1.0) * 2.0;
+        //float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * _Time_SSFX.y;
         
+        
+
+        /*newSpeed += directionToTarget * distanceInfluenceTargetAttraction * _Time_SSFX.y;
         if (length(newSpeed) > _SimulationBase.z)
             newSpeed = normalize(newSpeed) * _SimulationBase.z;
         datas.speed = lerp(datas.speed, newSpeed, 0.2);
         if (length(datas.speed) > _SimulationBase.z)
             datas.speed = normalize(datas.speed) * _SimulationBase.z;*/
         datas.worldPosition += float4(datas.speed * _Time_SSFX.y, 0);
-        datas.worldPosition.y = max(datas.worldPosition.y, _SimulationBase.y);
+        //datas.worldPosition.y = max(datas.worldPosition.y, _SimulationBase.y);
     }
 //    else 
 //        datas.worldPosition += float4(datas.normal * 0.01, 0.0f);
@@ -135,7 +160,7 @@ void CSBufferUnion (uint id : SV_DispatchThreadID)
         return;
 
     ParticleDatas particle = _PreviousParticlesDatasBuffer[bufferIndex];
-    float timeLived = _Time_SSFX.y - particle.timeApparition;
+    float timeLived = _Time_SSFX.x - particle.timeApparition;
     if (timeLived < particle.duration && particle.duration > 0) 
     {
         // Check if the particle is still alive
