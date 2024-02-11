@@ -27,6 +27,6 @@ FragmentInputDepthSSFX vertDepthSSFX(VertexInputDepthSSFX i)
 
 void fragDepthSSFX(FragmentInputDepthSSFX i)
 {
-    if (IsPixelDiscard(i.uv))
+    if (IsPixelDiscard(i.uv, float3(0, 0, 0)))
         discard;
 }

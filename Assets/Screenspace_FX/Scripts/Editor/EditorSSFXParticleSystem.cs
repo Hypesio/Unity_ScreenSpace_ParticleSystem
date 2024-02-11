@@ -5,17 +5,18 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.UI;
+using UnityEngine.XR.WSA;
 
 [CustomEditor(typeof(SSFXParticleSystem))]
-public class EditorSSFXParticleSystem : Editor 
+public class EditorSSFXParticleSystem : Editor
 {
-    SSFXParticleSystem targetScript; 
+    SSFXParticleSystem targetScript;
 
     private enum EffectState
     {
-        None, 
+        None,
         Playing,
-        Looping, 
+        Looping,
     }
 
     private EffectState effectState = EffectState.None;
@@ -32,9 +33,9 @@ public class EditorSSFXParticleSystem : Editor
 
     void OnEnable()
     {
-        targetScript = (SSFXParticleSystem)target; 
+        targetScript = (SSFXParticleSystem)target;
         effectState = EffectState.None;
-        
+
     }
     void InitStyles()
     {
@@ -58,7 +59,7 @@ public class EditorSSFXParticleSystem : Editor
             fontStyle = FontStyle.Italic
         };
 
-        centeredStyle = new GUIStyle(GUI.skin.label){alignment = TextAnchor.MiddleCenter};
+        centeredStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
 
         buttonPressedStyle = new GUIStyle(GUI.skin.button);
         buttonPressedStyle.fontStyle = FontStyle.Bold;
@@ -67,8 +68,8 @@ public class EditorSSFXParticleSystem : Editor
         initDone = true;
     }
 
-    bool IsEffectPlaying ()
-    {   
+    bool IsEffectPlaying()
+    {
         return effectState == EffectState.Playing || effectState == EffectState.Looping;
     }
 
@@ -97,16 +98,16 @@ public class EditorSSFXParticleSystem : Editor
             targetScript.StartEffect();
             effectState = EffectState.Playing;
         }
-        
+
         if (effectState != EffectState.Looping && GUILayout.Button("Loop"))
         {
             targetScript.StartEffect();
             effectState = EffectState.Looping;
         }
-        
+
         if (effectState == EffectState.Looping)
             GUILayout.Button("Loop", buttonPressedStyle);
-        
+
         GUILayout.EndHorizontal();
         GUILayout.BeginHorizontal();
 
@@ -116,7 +117,7 @@ public class EditorSSFXParticleSystem : Editor
             paused = true;
             EditorUtils.SetTimeSpeed(0);
         }
-        
+
         if (paused && IsEffectPlaying() && GUILayout.Button("Resume"))
         {
             targetScript.PlayEffect();
@@ -129,7 +130,7 @@ public class EditorSSFXParticleSystem : Editor
             paused = false;
             EditorUtils.SetTimeSpeed(1);
         }
-        
+
         bool resetThisFrame = false;
         if (effectState != EffectState.None && GUILayout.Button("Reset"))
         {
@@ -142,7 +143,7 @@ public class EditorSSFXParticleSystem : Editor
 
         GUILayout.EndHorizontal();
 
-    
+
         if (IsEffectPlaying())
         {
             GUILayout.Label($"Progress {targetScript.GetEffectProgress().ToString("0.00")}%", centeredStyle);
@@ -150,6 +151,18 @@ public class EditorSSFXParticleSystem : Editor
 
         GUILayout.Space(10);
         GUILayout.Label("Options", headerStyleH2);
+
+        if (GUILayout.Button("Use all child renderers"))
+        {
+            List<Renderer> renderers = new List<Renderer>();
+
+            foreach (Renderer rend in targetScript.transform.GetComponentsInChildren<Renderer>())
+            {
+                renderers.Add(rend);
+            }
+
+            targetScript.renderers = renderers.ToArray();
+        }
 
         DrawDefaultInspector();
 

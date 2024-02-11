@@ -21,3 +21,8 @@ This table will be updated when i'll have time to test versions and based on you
 3. In Project Settings > Graphics, set ‘Scriptable Render Pipeline Settings’ asset to URP-SSFX-HighFidelity (or just reproduce the custom pass in it in your own URP renderer asset)
 4. Do the same in Project Settings > Quality on the quality level of your choice.
 5. Enjoy 🥳
+
+### Advices
+
+#### Easier Lit material setup
+If you want to use the `SSFX/Lit Generator` shader, I recommend setting values through `Universal Render Pipeline/Lit`. It will allows you to use the custom editor used by URP lit shaders. Then when it is ready just switch to `SSFX/Lit Generator` and it will keep all the properties you've set.

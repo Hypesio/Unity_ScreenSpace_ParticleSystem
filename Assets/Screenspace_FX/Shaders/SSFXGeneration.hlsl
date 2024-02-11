@@ -36,6 +36,7 @@ uniform float _durationEffect;
 uniform Texture2D<float> _AlphaMap;
 float4 _AlphaMap_ST;
 SamplerState sampler_AlphaMap;
+uniform float _WorldSpaceAlpha;
 
 inline float3 GetStartSpeedDirection(float3 normal, float3 localPosition)
 {
@@ -63,6 +64,32 @@ inline float GetParticleInitialSpeed(float randomValue)
 inline float GetParticleInitialSize(float randomValue)
 {
     return lerp(_ParticleEmissionData2.x, _ParticleEmissionData2.y, randomValue);
+}
+
+inline int IsPixelDiscardTimed(float timePassed, float2 uv, float3 worldPosition)
+{
+    if (timePassed > 0)
+    {
+        if (timePassed > _durationEffect)
+            return 1;
+
+        if (_WorldSpaceAlpha >= 1)
+            uv = normalize(worldPosition); 
+
+        float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, uv, 0).x;
+        float actualAlphaCutout = saturate(timePassed / _durationEffect);
+
+        if (alpha < actualAlphaCutout)
+            return 1;
+    }
+    return 0;
+}
+
+
+inline int IsPixelDiscard(float2 uv, float3 worldPosition)
+{
+    float timePassed = _TimeProgressEffect;
+    return IsPixelDiscardTimed(timePassed, uv, worldPosition);
 }
 
 struct VertexInputSSFXGeneration
@@ -115,12 +142,8 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
 
     // Check if the fragment will disappear in next frame
     // If visible now but not on next frame => Generate particles
-    float previousAlphaCutout = saturate(timePassed / _durationEffect);
-    float actualAlphaCutout = saturate((timePassed + _Time_SSFX.y) / _durationEffect);
-
-    float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, i.uv, 0.0);
-
-    if (alpha > previousAlphaCutout && alpha <= actualAlphaCutout)
+    float nextTime = (timePassed + _Time_SSFX.y);
+    if (!IsPixelDiscardTimed(timePassed, i.uv, i.worldPosition) && IsPixelDiscardTimed(nextTime, i.uv, i.worldPosition))
     {
         // Get the position in the append buffer 
         // and increase counter for other fragments
@@ -159,22 +182,6 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
 }
 
 
-int IsPixelDiscard(float2 uv)
-{
-    float timePassed = _TimeProgressEffect;
-    if (timePassed > 0)
-    {
-        if (timePassed > _durationEffect)
-            return 1;
-
-        float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, uv, 0.0);
-        float actualAlphaCutout = saturate(timePassed / _durationEffect);
-
-        if (alpha < actualAlphaCutout)
-            return 1;
-    }
-    return 0;
-}
 
 
 #endif //SSFX_UTILS_GENERATION

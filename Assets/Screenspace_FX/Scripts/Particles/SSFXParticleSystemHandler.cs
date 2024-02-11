@@ -4,10 +4,11 @@ using System.Runtime.InteropServices;
 using UnityEditor.Rendering;
 using UnityEngine;
 
-namespace SSFX {
+namespace SSFX
+{
 
     // If values are added here, changes should be copied in ParticlesCommons.cginc
-    enum SSFXParticleSystemFlags 
+    enum SSFXParticleSystemFlags
     {
         GravityModifier = 1 << 1,
         ColorOverLifetime = 1 << 2,
@@ -19,7 +20,8 @@ namespace SSFX {
         TargetDieOnReach = 1 << 8,
     }
 
-    unsafe public struct SSFXParticleConfig {
+    unsafe public struct SSFXParticleConfig
+    {
         // used to tell in shader what to use or not
         public int flagsFeature;
         public float gravity;
@@ -54,7 +56,7 @@ namespace SSFX {
             if (_configs == null)
             {
                 _configs = new List<SSFXParticleConfig>();
-                _configs.Add(new SSFXParticleConfig{});
+                _configs.Add(new SSFXParticleConfig { });
 
                 _configsTargets = new List<Transform>();
                 _configsTargets.Add(null);
@@ -70,26 +72,29 @@ namespace SSFX {
                 return true;
             if ((a == null && b != null) || (b == null && a != null))
                 return false;
-            
-            for(int i = 0; i < size; i++)
+
+            for (int i = 0; i < size; i++)
             {
                 if (a[i] != b[i])
                     return false;
             }
             return true;
         }
-        unsafe private static bool ConfigEquality(SSFXParticleConfig a, SSFXParticleConfig b) {
+        unsafe private static bool ConfigEquality(SSFXParticleConfig a, SSFXParticleConfig b)
+        {
             return a.gravity == b.gravity &&
-            SequenceEqual(a.grad_colorOverLifetime,b.grad_colorOverLifetime, MAX_GRADIENT_KEYS * 4) &&
-            SequenceEqual(a.grad_sizeOverLifetime,b.grad_sizeOverLifetime, MAX_GRADIENT_KEYS * 2) &&
+            SequenceEqual(a.grad_colorOverLifetime, b.grad_colorOverLifetime, MAX_GRADIENT_KEYS * 4) &&
+            SequenceEqual(a.grad_sizeOverLifetime, b.grad_sizeOverLifetime, MAX_GRADIENT_KEYS * 2) &&
             a.targetDatas == b.targetDatas
-            && SequenceEqual(a.grad_speedOverLifetime,b.grad_speedOverLifetime, MAX_GRADIENT_KEYS * 2);
+            && SequenceEqual(a.grad_speedOverLifetime, b.grad_speedOverLifetime, MAX_GRADIENT_KEYS * 2);
         }
 
-        private static int FindConfig(SSFXParticleConfig config) {
+        private static int FindConfig(SSFXParticleConfig config)
+        {
             if (_configs == null)
                 return -1;
-            for(int i = 0; i < _configs.Count; i++) {
+            for (int i = 0; i < _configs.Count; i++)
+            {
                 SSFXParticleConfig act = _configs[i];
                 if (ConfigEquality(config, act))
                     return i;
@@ -97,8 +102,10 @@ namespace SSFX {
             return -1;
         }
 
-        private static void WarningMaxGradKeys(int number) {
-            if (number > MAX_GRADIENT_KEYS) {
+        private static void WarningMaxGradKeys(int number)
+        {
+            if (number > MAX_GRADIENT_KEYS)
+            {
                 Debug.LogWarning("[SSFX] Your gradient will be truncated, it have to much keys. Max is 10");
             }
         }
@@ -114,7 +121,7 @@ namespace SSFX {
             SSFXParticleConfig conf = _configs[configID];
 
             conf.flagsFeature |= (int)SSFXParticleSystemFlags.KillAll;
-            
+
             _configs[configID] = conf;
             _dirtyConfigs = true;
         }
@@ -122,32 +129,54 @@ namespace SSFX {
 
         unsafe public static void UpdateConfig(int configID, float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce, bool dieOnReach)
         {
-            SSFXParticleConfig config = new SSFXParticleConfig{};
+            // Avoid errors after domain reload
+            if (_configs == null)
+            {
+                _configs = new List<SSFXParticleConfig>();
+                _configsTargets = new List<Transform>();
+            }
+            if (configID > _configs.Count)
+            {
+                for (int i = _configs.Count; i <= configID; i++)
+                {
+                    _configs.Add(new SSFXParticleConfig { });
+                }
+                for (int i = _configsTargets.Count; i <= configID; i++)
+                {
+                    _configsTargets.Add(null);
+                }
+            }
 
-            if (gravityModifierEnable) {
+
+            SSFXParticleConfig config = new SSFXParticleConfig { };
+
+            if (gravityModifierEnable)
+            {
                 config.gravity = gravity;
                 config.flagsFeature &= (int)SSFXParticleSystemFlags.GravityModifier;
             }
-            
+
 
             // Target 
-            if (targetTransform != null) {
+            if (targetTransform != null)
+            {
                 Vector3 targetPos = targetTransform.position;
                 config.targetDatas = new Vector4(targetPos.x, targetPos.y, targetPos.z, attractionForce);
-                
+
                 config.flagsFeature |= (int)SSFXParticleSystemFlags.Target;
                 _configsTargets[configID] = targetTransform;
                 if (dieOnReach)
                     config.flagsFeature |= (int)SSFXParticleSystemFlags.TargetDieOnReach;
             }
-            
+
             if (colorOverLifetime.alphaKeys.Count() > 0)
             {
                 // Color gradient
                 WarningMaxGradKeys(colorOverLifetime.colorKeys.Count());
                 //config.grad_colorOverLifetime = new float[MAX_GRADIENT_KEYS];
                 int index_key = 0;
-                foreach(var keys in colorOverLifetime.colorKeys) {
+                foreach (var keys in colorOverLifetime.colorKeys)
+                {
                     if (index_key > MAX_GRADIENT_KEYS)
                         break;
                     config.grad_colorOverLifetime[index_key * 4] = keys.color.r;
@@ -155,8 +184,8 @@ namespace SSFX {
                     config.grad_colorOverLifetime[index_key * 4 + 2] = keys.color.b;
                     config.grad_colorOverLifetime[index_key * 4 + 3] = keys.time;
 
-                    index_key ++;
-                } 
+                    index_key++;
+                }
                 for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
                 {
                     config.grad_colorOverLifetime[index_key * 4 + 3] = INVALID_FLOAT;
@@ -171,14 +200,15 @@ namespace SSFX {
                 WarningMaxGradKeys(colorOverLifetime.alphaKeys.Count());
                 //config.grad_alphaOverLifetime = new float[MAX_GRADIENT_KEYS];
                 int index_key = 0;
-                foreach(var keys in colorOverLifetime.alphaKeys) {
+                foreach (var keys in colorOverLifetime.alphaKeys)
+                {
                     if (index_key > MAX_GRADIENT_KEYS)
                         break;
                     config.grad_alphaOverLifetime[index_key * 2] = keys.alpha;
                     config.grad_alphaOverLifetime[index_key * 2 + 1] = keys.time;
 
-                    index_key ++;
-                } 
+                    index_key++;
+                }
                 for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
                 {
                     config.grad_alphaOverLifetime[index_key * 2 + 1] = INVALID_FLOAT;
@@ -193,14 +223,15 @@ namespace SSFX {
                 WarningMaxGradKeys(sizeOverLifetime.keys.Count());
                 //config.grad_sizeOverLifetime = new float[MAX_GRADIENT_KEYS];
                 int index_key = 0;
-                foreach(var keys in sizeOverLifetime.keys) {
+                foreach (var keys in sizeOverLifetime.keys)
+                {
                     if (index_key > MAX_GRADIENT_KEYS)
                         break;
                     config.grad_sizeOverLifetime[index_key * 2] = keys.value;
                     config.grad_sizeOverLifetime[index_key * 2 + 1] = keys.time;
 
-                    index_key ++;
-                } 
+                    index_key++;
+                }
                 for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
                 {
                     config.grad_sizeOverLifetime[index_key * 2 + 1] = INVALID_FLOAT;
@@ -214,14 +245,15 @@ namespace SSFX {
                 WarningMaxGradKeys(speedOverLifetime.keys.Count());
                 //config.grad_speedOverLifetime = new float[MAX_GRADIENT_KEYS];
                 int index_key = 0;
-                foreach(var keys in speedOverLifetime.keys) {
+                foreach (var keys in speedOverLifetime.keys)
+                {
                     if (index_key > MAX_GRADIENT_KEYS)
                         break;
                     config.grad_speedOverLifetime[index_key * 2] = keys.value;
                     config.grad_speedOverLifetime[index_key * 2 + 1] = keys.time;
 
-                    index_key ++;
-                } 
+                    index_key++;
+                }
                 for (int i = index_key; i < MAX_GRADIENT_KEYS; i++)
                 {
                     config.grad_speedOverLifetime[index_key * 2 + 1] = INVALID_FLOAT;
@@ -237,7 +269,7 @@ namespace SSFX {
         // Will create a new config only if it doesn't already exist
         unsafe public static int NewConfig(float gravity, bool gravityModifierEnable, Gradient colorOverLifetime, AnimationCurve sizeOverLifetime, AnimationCurve speedOverLifetime, Transform targetTransform, float attractionForce, bool dieOnReach)
         {
-            SSFXParticleConfig config = new SSFXParticleConfig{};
+            SSFXParticleConfig config = new SSFXParticleConfig { };
             int index_config = AddConfig(config);
             UpdateConfig(index_config, gravity, gravityModifierEnable, colorOverLifetime, sizeOverLifetime, speedOverLifetime, targetTransform, attractionForce, dieOnReach);
 
@@ -254,7 +286,7 @@ namespace SSFX {
 
             if (_configs != null)
                 _configsBuffer = new ComputeBuffer(_configs.Count() * 2, Marshal.SizeOf(typeof(SSFXParticleConfig)), ComputeBufferType.Structured);
-            else 
+            else
                 _configsBuffer = new ComputeBuffer(10, Marshal.SizeOf(typeof(SSFXParticleConfig)), ComputeBufferType.Structured);
 
             return _configsBuffer;
@@ -264,14 +296,14 @@ namespace SSFX {
         public static ComputeBuffer UpdateConfigsComputeBuffer()
         {
             _configsBuffer = CreateConfigsComputeBuffer();
-                
+
             if (_configs == null)
                 return _configsBuffer;
-            
+
             // Update target position if needed
             for (int i = 1; i < _configs.Count(); i++)
             {
-                if (_configsTargets != null && _configsTargets[i] != null) 
+                if (_configsTargets != null && _configsTargets[i] != null)
                 {
                     Vector3 tarPos = _configsTargets[i].position;
                     SSFXParticleConfig conf = _configs[i];
@@ -284,7 +316,7 @@ namespace SSFX {
                 }
             }
 
-            if(_dirtyConfigs)
+            if (_dirtyConfigs)
             {
                 _configsBuffer.SetData(_configs);
                 _dirtyConfigs = false;

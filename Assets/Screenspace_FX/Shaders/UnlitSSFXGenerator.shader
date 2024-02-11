@@ -1,11 +1,10 @@
-Shader "Hypesio/UnlitSSFXGenerator"
+Shader "SSFX/Unlit Generator"
 {
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
-        _AlphaMap("Texture", 2D) = "white" {}
-        _ParticleLifetime("Particles life time", Float) = 2
-        _SpawnRateParticles("Particle Spawn Rate", Float) = 0.5
+        _AlphaMap("Texture Alpha SSFX", 2D) = "white" {}
+        [ToggleOff] _WorldSpaceAlpha("Alpha World Space", Float) = 1.0
     }
     SubShader
     {
@@ -34,6 +33,7 @@ Shader "Hypesio/UnlitSSFXGenerator"
                 float2 uv : TEXCOORD0;
                 float2 uv2 : TEXCOORD1;
                 float4 vertex : SV_POSITION;
+                float3 worldPosition : TEXCOORD2;
             };
 
             sampler2D _MainTex;
@@ -53,7 +53,7 @@ Shader "Hypesio/UnlitSSFXGenerator"
                 // sample the texture
                 float4 col = tex2D(_MainTex, i.uv);
                 // Discard Pixel if needed
-                if (IsPixelDiscard(i.uv2))
+                if (IsPixelDiscard(i.uv2, i.worldPosition))
                     discard;
 
                 return col;
