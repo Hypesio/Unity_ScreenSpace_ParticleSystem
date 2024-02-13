@@ -26,7 +26,7 @@ public class EditorSSFXParticleSystem : Editor
     private GUIStyle headerStyleH3;
     private GUIStyle buttonPressedStyle;
     private GUIStyle centeredStyle;
-
+    private SerializedObject serializedTarget;
     private bool initDone = false;
 
     public override bool RequiresConstantRepaint() => IsEffectPlaying();
@@ -35,6 +35,7 @@ public class EditorSSFXParticleSystem : Editor
     {
         targetScript = (SSFXParticleSystem)target;
         effectState = EffectState.None;
+        serializedTarget = new SerializedObject(targetScript);
 
     }
     void InitStyles()
@@ -95,6 +96,7 @@ public class EditorSSFXParticleSystem : Editor
         GUIStyle onceStyle = effectState == EffectState.Playing ? buttonPressedStyle : GUI.skin.button;
         if (GUILayout.Button("Once", onceStyle))
         {
+            targetScript.ResetEffect();
             targetScript.StartEffect();
             effectState = EffectState.Playing;
         }
@@ -111,18 +113,21 @@ public class EditorSSFXParticleSystem : Editor
         GUILayout.EndHorizontal();
         GUILayout.BeginHorizontal();
 
-        if (!paused && IsEffectPlaying() && GUILayout.Button("Pause"))
+        if (!paused && IsEffectPlaying() && GUILayout.Button("Pause "))
         {
             targetScript.PauseEffect();
             paused = true;
             EditorUtils.SetTimeSpeed(0);
         }
-
-        if (paused && IsEffectPlaying() && GUILayout.Button("Resume"))
+        else if (paused && IsEffectPlaying() && GUILayout.Button("Resume"))
         {
             targetScript.PlayEffect();
             paused = false;
             EditorUtils.SetTimeSpeed(1);
+        }
+        else if (!IsEffectPlaying() && GUILayout.Button("       "))
+        {
+
         }
 
         if (!IsEffectPlaying() && paused)
@@ -132,7 +137,7 @@ public class EditorSSFXParticleSystem : Editor
         }
 
         bool resetThisFrame = false;
-        if (effectState != EffectState.None && GUILayout.Button("Reset"))
+        if (GUILayout.Button("Reset"))
         {
             targetScript.ResetEffect();
             effectState = EffectState.None;
@@ -163,9 +168,56 @@ public class EditorSSFXParticleSystem : Editor
 
             targetScript.renderers = renderers.ToArray();
         }
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("renderers"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("durationEffect"));
 
-        DrawDefaultInspector();
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("particleSpawnRate"));
+        GUILayout.Space(4);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("durationMin"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("durationMax"));
+        GUILayout.Space(4);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("startSizeMin"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("startSizeMax"));
+        GUILayout.Space(4);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("startSpeedMin"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("startSpeedMax"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("startSpeedType"));
+        if (targetScript.startSpeedType == SSFXParticleSystem.StartSpeedType.StartDirection)
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("startDirection"));
 
+        GUILayout.Space(4);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("enableGravityModifier"));
+        if (targetScript.enableGravityModifier)
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("gravityModifier"));
+
+        //DrawDefaultInspector();
+        GUILayout.Space(8);
+        targetScript.enableSpeedOverLifetime = GUILayout.Toggle(targetScript.enableSpeedOverLifetime, "Enable SpeedOverLifetime");
+        if (targetScript.enableSpeedOverLifetime)
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("speedOverLifetime"));
+        }
+
+        GUILayout.Space(8);
+        targetScript.enableSizeOverLifetime = GUILayout.Toggle(targetScript.enableSizeOverLifetime, "Enable SizeOverLifetime");
+        if (targetScript.enableSizeOverLifetime)
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("sizeOverLifetime"));
+        }
+
+        GUILayout.Space(8);
+        targetScript.enableTarget = GUILayout.Toggle(targetScript.enableTarget, "Enable Target");
+        if (targetScript.enableTarget)
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("particlesTarget"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("particlesTargetAttractionForce"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("particleDieWhenReachingTarget"));
+            if (targetScript.particleDieWhenReachingTarget)
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("targetKillRadius"));
+
+        }
+
+        serializedObject.ApplyModifiedProperties();
 
         UpdateSystemState();
 

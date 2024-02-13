@@ -87,8 +87,9 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
     
     float timeLived = _Time_SSFX.x - datas.timeApparition;
     float lifeProgress = timeLived / datas.duration;
+    if (config.flagsFeature & FLAG_SIZE_OVER_LIFETIME)
     {
-        datas.size = datas.startSize;//* GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
+        datas.size = datas.startSize * GetCurveValue(config.grad_sizeOverLifetime, lifeProgress);
     }
 
     //if (datas.worldPosition.y > _SimulationBase.y)
@@ -96,7 +97,7 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         float2 uv = datas.worldPosition.xy * _NoiseMap_ST.xy;
         
         // Size over lifetime
-        if (config.flagsFeature & FLAG_SIZE_OVER_LIFETIME)
+        if (config.flagsFeature & FLAG_SPEED_OVER_LIFETIME)
         {
             datas.speed = normalize(datas.speed) * datas.startSpeed * GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
         }
@@ -108,12 +109,14 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         {
             float3 directionToTarget = config.targetDatas.xyz - datas.worldPosition.xyz;
             float particleDistToTarget = length(directionToTarget);
-            
-            if (config.flagsFeature & FLAG_TARGET_DIE_ON_REACH && particleDistToTarget < lenSpeed * _Time_SSFX.y)
+            float targetAttraction;
+            float targetDeathRadius;
+            Unpack2Float32(config.targetDatas.w, 100.0f, 20.0f, targetAttraction, targetDeathRadius);
+            if (config.flagsFeature & FLAG_TARGET_DIE_ON_REACH && particleDistToTarget < targetDeathRadius)//lenSpeed * _Time_SSFX.y)
                 datas.duration = -1;
 
             float3 speedToTarget = normalize(directionToTarget) * lenSpeed;
-            datas.speed = normalize(lerp(datas.speed, speedToTarget, config.targetDatas.w * _Time_SSFX.y)) * lenSpeed;
+            datas.speed = normalize(lerp(datas.speed, speedToTarget, targetAttraction * _Time_SSFX.y)) * lenSpeed;
             
             //if (lenSpeed > particleDistToTarget)
             //    datas.speed = normalize(datas.speed) * particleDistToTarget;

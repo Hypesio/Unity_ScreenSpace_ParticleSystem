@@ -51,4 +51,27 @@ float3 GetCurveColor(float4 values[SSFX_MAX_GRAD_KEYS], float lerpValue)
     float lerp_between = (lerpValue - lower_datas.w) / (upper_datas.w - lower_datas.w);
     return lerp(lower_datas.xyz, upper_datas.xyz, lerp_between);
 }
+
+
+float Pack2Float32(float a, float aMaxValue, float b, float bMaxValue)
+{
+    float scale = 65535.0f;
+    float a0_1 = a / aMaxValue;
+    int aPacked = (int)(a0_1 * scale);
+    float b0_1 = b / bMaxValue;
+    int bPacked = (int)(b0_1 * scale);
+
+    float packedValue = aPacked + (bPacked * scale);
+    return packedValue;
+}
+
+inline void Unpack2Float32(float packedValue, float aMaxValue, float bMaxValue, out float aValue, out float bValue)
+{
+    float scale = 65535.0f;
+    float b = floor(packedValue / scale);
+    float a = packedValue - (b * scale);
+    aValue = (float)(a / scale) * aMaxValue;
+    bValue = (float)(b / scale) * bMaxValue;
+}
+
 #endif // SSFX_UTILS

@@ -74,7 +74,7 @@ inline int IsPixelDiscardTimed(float timePassed, float2 uv, float3 worldPosition
             return 1;
 
         if (_WorldSpaceAlpha >= 1)
-            uv = normalize(worldPosition); 
+            uv = normalize(worldPosition) * 5; 
 
         float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, uv, 0).x;
         float actualAlphaCutout = saturate(timePassed / _durationEffect);

@@ -22,30 +22,35 @@ public class SSFXParticleSystem : MonoBehaviour
     [Space]
 
 
-    [Header("Materials")]
+    //[Header("Materials")]
     public float durationEffect;
 
-    [Header("Particles")]
+    //[Header("Particles")]
     public float durationMin = 1.0f;
     public float durationMax = 1.0f;
     public float particleSpawnRate = 0.2f;
     public StartSpeedType startSpeedType = StartSpeedType.FromMeshCenter;
     [Tooltip("Taken into account only if startSpeedType is set to StartDirection")]
     public Vector3 startDirection;
-    public float minStartSpeed = 1.0f;
-    public float maxStartSpeed = 1.2f;
+    public float startSpeedMin = 1.0f;
+    public float startSpeedMax = 1.2f;
     public bool enableGravityModifier = false;
     public float gravityModifier = 0;
-    public float minStartSize = 0.01f;
-    public float maxStartSize = 0.01f;
+    public float startSizeMin = 0.01f;
+    public float startSizeMax = 0.01f;
+    public bool enableSizeOverLifetime = false;
     public AnimationCurve sizeOverLifetime;
+    public bool enableSpeedOverLifetime = false;
     public AnimationCurve speedOverLifetime;
+    public bool enableColorOverLifetime = false;
     public Gradient colorOverLifetime;
+    public bool enableTarget = false;
     public Transform particlesTarget;
+    [Tooltip("Max Value is 100.0f")]
     public float particlesTargetAttractionForce;
     public bool particleDieWhenReachingTarget = true;
-
-
+    [Tooltip("Max Value is 20.0f")]
+    public float targetKillRadius = 0.2f;
 
     [HideInInspector]
     public bool isPlaying
@@ -92,7 +97,7 @@ public class SSFXParticleSystem : MonoBehaviour
         if (_timeCounter >= (_durationEffect + durationMax))
         {
             isPlaying = false;
-            _timeCounter = 0;
+            //_timeCounter = 0;
         }
 
         _timeCounter += EditorUtils.GetDeltaTime();
@@ -103,20 +108,64 @@ public class SSFXParticleSystem : MonoBehaviour
         }
     }
 
+    unsafe
+    public SSFXParticleConfig BuildConfig()
+    {
+        SSFXParticleConfig config = new SSFXParticleConfig { };
+
+        if (enableGravityModifier)
+        {
+            config.gravity = gravityModifier;
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.GravityModifier;
+        }
+
+        if (enableTarget && particlesTarget != null)
+        {
+            float datas4 = SSFXParticleSystemHandler.Pack2Float(particlesTargetAttractionForce, 100.0f, targetKillRadius, 20.0f);
+            if (particleDieWhenReachingTarget)
+            {
+                config.flagsFeature |= (int)SSFXParticleSystemFlags.TargetDieOnReach;
+            }
+
+            Vector3 targetPos = particlesTarget.position;
+            config.targetDatas = new Vector4(targetPos.x, targetPos.y, targetPos.z, datas4);
+
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.Target;
+        }
+
+        SSFXParticleSystemHandler.SetArrayFromColorGradient(colorOverLifetime, config.grad_colorOverLifetime, config.grad_alphaOverLifetime);
+        if (enableColorOverLifetime)
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.ColorOverLifetime;
+        if (enableColorOverLifetime)
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.AlphaOverLifetime;
+
+        SSFXParticleSystemHandler.SetArrayFromAnimationCurve(sizeOverLifetime, config.grad_sizeOverLifetime);
+        if (enableSizeOverLifetime)
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.SizeOverLifetime;
+
+        SSFXParticleSystemHandler.SetArrayFromAnimationCurve(speedOverLifetime, config.grad_speedOverLifetime);
+        if (enableSpeedOverLifetime)
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.SpeedOverLifetime;
+
+        return config;
+    }
+
     public void UpdateConfig()
     {
         if (EditorUtils.IsInEditMode())
             SetMats();
 
+        SSFXParticleConfig config = BuildConfig();
+
         if (_indexConfig == 0)
-            _indexConfig = SSFXParticleSystemHandler.NewConfig(gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce, particleDieWhenReachingTarget);
+            _indexConfig = SSFXParticleSystemHandler.NewConfig(config, particlesTarget);
         else
-            SSFXParticleSystemHandler.UpdateConfig(_indexConfig, gravityModifier, enableGravityModifier, colorOverLifetime, sizeOverLifetime, speedOverLifetime, particlesTarget, particlesTargetAttractionForce, particleDieWhenReachingTarget);
+            SSFXParticleSystemHandler.UpdateConfig(_indexConfig, config, particlesTarget);
 
         foreach (var mat in _mats)
         {
             mat.SetVector("_ParticleEmissionData", new Vector4(_indexConfig, durationMin, durationMax, particleSpawnRate));
-            mat.SetVector("_ParticleEmissionData2", new Vector4(minStartSize, maxStartSize, minStartSpeed, maxStartSpeed));
+            mat.SetVector("_ParticleEmissionData2", new Vector4(startSizeMin, startSizeMax, startSpeedMin, startSpeedMax));
             mat.SetVector("_ParticleEmissionData3", new Vector4((float)startSpeedType, startDirection.x, startDirection.y, startDirection.z));
         }
     }
