@@ -113,6 +113,8 @@ namespace SSFX
         unsafe
         public static void SetArrayFromAnimationCurve(AnimationCurve curve, float* grad)
         {
+            if (curve == null || curve.keys.Count() == 0)
+                return;
             WarningMaxGradKeys(curve.keys.Count());
 
             float maxTime = curve.keys[curve.keys.Count() - 1].time;
@@ -138,6 +140,8 @@ namespace SSFX
         unsafe
         public static void SetArrayFromColorGradient(Gradient gradient, float* grad_color, float* grad_alpha)
         {
+            if (gradient == null)
+                return;
             // Color gradient
             WarningMaxGradKeys(gradient.colorKeys.Count());
             //config.grad_colorOverLifetime = new float[MAX_GRADIENT_KEYS];
@@ -200,6 +204,8 @@ namespace SSFX
 
         public static void ClearConfigParticles(int configID)
         {
+            if (_configs == null)
+                return;
             if (configID >= _configs.Count() && configID >= 0)
             {
                 Debug.LogWarning("[SSFX] You are trying to clear an out of bound config");
@@ -223,7 +229,7 @@ namespace SSFX
                 _configs = new List<SSFXParticleConfig>();
                 _configsTargets = new List<Transform>();
             }
-            if (configID > _configs.Count)
+            if (configID >= _configs.Count)
             {
                 for (int i = _configs.Count; i <= configID; i++)
                 {

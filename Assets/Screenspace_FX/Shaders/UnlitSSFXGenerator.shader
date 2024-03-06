@@ -3,8 +3,8 @@ Shader "SSFX/Unlit Generator"
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+        _MainColor("Color", Color) =  (1,1,1,1)
         _AlphaMap("Texture Alpha SSFX", 2D) = "white" {}
-        [ToggleOff] _WorldSpaceAlpha("Alpha World Space", Float) = 1.0
     }
     SubShader
     {
@@ -38,6 +38,7 @@ Shader "SSFX/Unlit Generator"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            float4 _MainColor;
         
             v2f vert (appdata v)
             {
@@ -56,7 +57,7 @@ Shader "SSFX/Unlit Generator"
                 if (IsPixelDiscard(i.uv2, i.worldPosition))
                     discard;
 
-                return col;
+                return col * _MainColor;
             }
             ENDHLSL
         }

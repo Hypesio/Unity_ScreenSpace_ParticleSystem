@@ -5,10 +5,12 @@
 // y = deltatime 
 uniform float4 _Time_SSFX; 
 
+// If change are made here, it MUST be replicated to SSFXRenderPassUtils.cs
 struct ParticleDatas
 {
     float4 worldPosition;
     float3 color;
+    float3 startColor;
     float timeApparition;
     float3 normal;
     float duration;

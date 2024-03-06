@@ -1,17 +1,11 @@
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
 Shader "Hypesio/Particles"
 {
     Properties
     {
-        _MainTex ("Texture", 2D) = "white" {}
-        _SizeParticles("_SizeParticles", int) = 0.1
+
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
-        LOD 100
-
         Pass
         {
 			HLSLPROGRAM
@@ -32,7 +26,7 @@ Shader "Hypesio/Particles"
 			struct FragmentInput
 			{
 				float4 position : SV_POSITION;
-				float3 color : COLOR;
+				float4 color : TEXCOORD0;
 			};
 			
 			uniform StructuredBuffer<ParticleDatas> _ParticlesDatasBuffer;
@@ -49,7 +43,7 @@ Shader "Hypesio/Particles"
                 float3 worldPosition;
                 
                 // No bilboard 
-                //float3 worldPosition = particle.worldPosition.xyz + (i.vertexPosition.xyz * particle.size);
+                //worldPosition = particle.worldPosition.xyz + (i.vertexPosition.xyz * particle.size);
                 //o.position = TransformWorldToHClip(worldPosition);
 
                 // SphericalBilboarding
@@ -58,7 +52,7 @@ Shader "Hypesio/Particles"
 				float4 viewPos = mul(UNITY_MATRIX_V, worldCoord) + float4(vpos, 0);
                 worldPosition = mul(UNITY_MATRIX_I_V, viewPos);
 
-                o.color = particle.color;
+                o.color = float4(particle.color, 1.0);
                 o.position = TransformWorldToHClip(worldPosition);
                 
 				return o;
@@ -67,7 +61,7 @@ Shader "Hypesio/Particles"
 			// Pixel shader
 			half4 frag(FragmentInput i) : COLOR
 			{
-				return half4(i.color, 1.0);
+				return half4(i.color.rgb, 0);
 			}
 			
 			ENDHLSL

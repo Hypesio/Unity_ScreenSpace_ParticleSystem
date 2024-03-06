@@ -115,7 +115,7 @@ MonoBehaviour:
     layerMaskMaterialOverride:
       serializedVersion: 2
       m_Bits: 64
-    maxParticlesEmitted: 80000
+    maxParticlesEmitted: 960000
     particlesMaterial: {fileID: 2100000, guid: a654a078c1050ae4091b2c68e78350e9, type: 2}
     particlesComputeShader: {fileID: 7200000, guid: 33b3639039e4571449b02dccb93e8a2f,
       type: 3}
@@ -147,7 +147,7 @@ MonoBehaviour:
     passTag: SSFXOpaque
     Event: 300
     filterSettings:
-      RenderQueueType: 0
+      RenderQueueType: 1
       LayerMask:
         serializedVersion: 2
         m_Bits: 64

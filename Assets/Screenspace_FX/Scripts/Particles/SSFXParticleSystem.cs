@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEditor.PackageManager.Requests;
 using UnityEditor;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 [ExecuteAlways]
 public class SSFXParticleSystem : MonoBehaviour
@@ -23,6 +24,7 @@ public class SSFXParticleSystem : MonoBehaviour
 
 
     //[Header("Materials")]
+    public bool playOnAwake = false;
     public float durationEffect;
 
     //[Header("Particles")]
@@ -52,6 +54,18 @@ public class SSFXParticleSystem : MonoBehaviour
     [Tooltip("Max Value is 20.0f")]
     public float targetKillRadius = 0.2f;
 
+    public bool enableSphereZoneEffect = false;
+    public Vector3 spherePosition;
+    public float sphereRadius = 1.0f;
+
+    private Vector3 previousSpherePosition;
+    private float previousSphereRadius;
+
+
+    public bool isContinuousEmetter = false;
+    public bool isMatAlphaWorldSpace = false;
+    public bool isEmetterInvisible = false;
+
     [HideInInspector]
     public bool isPlaying
     {
@@ -68,6 +82,8 @@ public class SSFXParticleSystem : MonoBehaviour
     {
         SetMats();
         UpdateConfig();
+        if (playOnAwake)
+            PlayEffect();
     }
 
     void SetMats()
@@ -105,7 +121,26 @@ public class SSFXParticleSystem : MonoBehaviour
         foreach (Material mat in _mats)
         {
             mat.SetFloat("_TimeProgressEffect", _timeCounter);
+            if (enableSphereZoneEffect)
+            {
+                mat.SetVector("_ParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, sphereRadius));
+                mat.SetVector("_PreviousParticleSphereEffectData", new Vector4(previousSpherePosition.x, previousSpherePosition.y, previousSpherePosition.z, previousSphereRadius));
+            }
         }
+
+        previousSpherePosition = spherePosition;
+        previousSphereRadius = sphereRadius;
+    }
+
+    void OnEnable()
+    {
+        if (playOnAwake)
+            PlayEffect();
+    }
+
+    void OnDisable()
+    {
+        ResetEffect();
     }
 
     unsafe
@@ -162,11 +197,17 @@ public class SSFXParticleSystem : MonoBehaviour
         else
             SSFXParticleSystemHandler.UpdateConfig(_indexConfig, config, particlesTarget);
 
-        foreach (var mat in _mats)
+        if (_mats == null)
+            SetMats();
+
+        foreach (Material mat in _mats)
         {
             mat.SetVector("_ParticleEmissionData", new Vector4(_indexConfig, durationMin, durationMax, particleSpawnRate));
             mat.SetVector("_ParticleEmissionData2", new Vector4(startSizeMin, startSizeMax, startSpeedMin, startSpeedMax));
             mat.SetVector("_ParticleEmissionData3", new Vector4((float)startSpeedType, startDirection.x, startDirection.y, startDirection.z));
+            mat.SetVector("_ParticleEmissionData4", new Vector4(isContinuousEmetter ? 1 : 0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, 0));
+            mat.SetVector("_ParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, enableSphereZoneEffect ? sphereRadius : 0));
+            mat.SetVector("_PreviousParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, enableSphereZoneEffect ? previousSphereRadius : 0));
         }
     }
 
@@ -190,6 +231,16 @@ public class SSFXParticleSystem : MonoBehaviour
             mat.SetFloat("_PauseParticleSystem", 0);
         }
         isPlaying = true;
+    }
+
+    public void StopEffect()
+    {
+        isPlaying = false;
+
+        foreach (var mat in _mats)
+        {
+            mat.SetVector("_ParticleEmissionData4", new Vector4(0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, 0));
+        }
     }
 
     public void PauseEffect()
@@ -221,6 +272,7 @@ public class SSFXParticleSystem : MonoBehaviour
     {
         if (_mats == null)
             return;
+        StopEffect();
         _reseted = true;
         _timeCounter = 0;
         SSFXParticleSystemHandler.ClearConfigParticles(_indexConfig);

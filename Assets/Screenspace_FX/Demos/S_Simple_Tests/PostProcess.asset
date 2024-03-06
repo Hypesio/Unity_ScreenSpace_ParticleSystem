@@ -21,10 +21,10 @@ MonoBehaviour:
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.323
+    m_Value: 0.258
   smoothness:
     m_OverrideState: 1
-    m_Value: 0.981
+    m_Value: 0.592
   rounded:
     m_OverrideState: 0
     m_Value: 0
@@ -40,13 +40,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29fa0085f50d5e54f8144f766051a691, type: 3}
   m_Name: FilmGrain
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   type:
     m_OverrideState: 1
     m_Value: 0
   intensity:
     m_OverrideState: 1
-    m_Value: 0.548
+    m_Value: 0.865
   response:
     m_OverrideState: 1
     m_Value: 0.766

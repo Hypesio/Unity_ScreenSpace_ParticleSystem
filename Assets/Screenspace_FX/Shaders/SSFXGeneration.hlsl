@@ -22,13 +22,30 @@ SamplerState sampler_CameraColor;
 uniform Texture2D<float4> _GBuffer2;
 SamplerState sampler_GBuffer2;
 
-// Uniforms set from SSFX particle system
+// Uniforms set once from SSFX particle system
 // indexConfig, durationMin, durationMax, SpawnRate
 uniform float4 _ParticleEmissionData;
 // minStartSize, maxStartSize, minStartSpeed, maxStartSpeed
 uniform float4 _ParticleEmissionData2;
-// startSpeedType, ?, ?, ?
+// startSpeedType, startSpeedX, startSpeedY, startSpeedZ
 uniform float4 _ParticleEmissionData3;
+// IsContinuousEmetter, IsAlphaWorldSpace, IsEmetterInvsibile, ?
+uniform float4 _ParticleEmissionData4;
+
+#define _IsContinousEmmeter _ParticleEmissionData4.x
+#define _IsAlphaWorldSpace _ParticleEmissionData4.y
+#define _IsEmetterinvisible _ParticleEmissionData4.z
+
+// Data update each frame
+// SpherePosition.x, SpherePosition.x, SpherePosition.x, SphereRadius
+uniform float4 _ParticleSphereEffectData;
+// SpherePosition.x, SpherePosition.x, SpherePosition.x, SphereRadius
+uniform float4 _PreviousParticleSphereEffectData;
+
+#define _SpherePosition _ParticleSphereEffectData.xyz
+#define _PreviousSpherePosition _PreviousParticleSphereEffectData.xyz
+#define _SphereRadius _ParticleSphereEffectData.w
+#define _PreviousSphereRadius _PreviousParticleSphereEffectData.w
 
 // Uniforms set from mat
 uniform float _TimeProgressEffect;
@@ -72,9 +89,10 @@ inline int IsPixelDiscardTimed(float timePassed, float2 uv, float3 worldPosition
     {
         if (timePassed > _durationEffect)
             return 1;
-
-        if (_WorldSpaceAlpha >= 1)
-            uv = normalize(worldPosition) * 5; 
+        
+        // Is alpha world space
+        if (_IsAlphaWorldSpace >= 1)
+            uv = normalize(worldPosition.xy) * 5; 
 
         float alpha = _AlphaMap.SampleLevel(sampler_AlphaMap, uv, 0).x;
         float actualAlphaCutout = saturate(timePassed / _durationEffect);
@@ -85,11 +103,21 @@ inline int IsPixelDiscardTimed(float timePassed, float2 uv, float3 worldPosition
     return 0;
 }
 
+inline int IsPixelDiscardSphere(float3 worldPosition, float3 spherePosition, float sphereRadius)
+{
+    float dist = length(worldPosition - spherePosition);
+    if (dist < sphereRadius)
+        return 1;
+    return 0;
+}
 
+// Call from material shader
 inline int IsPixelDiscard(float2 uv, float3 worldPosition)
 {
     float timePassed = _TimeProgressEffect;
-    return IsPixelDiscardTimed(timePassed, uv, worldPosition);
+    float isDiscard = IsPixelDiscardTimed(timePassed, uv, worldPosition);
+    // use previous position and radius for sphere to be sure generated particles will still have colors
+    return _IsEmetterinvisible || isDiscard || IsPixelDiscardSphere(worldPosition, _PreviousSpherePosition, _PreviousSphereRadius);
 }
 
 struct VertexInputSSFXGeneration
@@ -116,7 +144,7 @@ FragmentInputSSFXGeneration vertSSFXGeneration(VertexInputSSFXGeneration i)
     o.fragmentPosition = TransformWorldToHClip(o.worldPosition);
     o.uv = TRANSFORM_TEX(i.uv, _AlphaMap);
     o.fragNormal = i.vertexNormal;
-    o.localPosition = i.vertexPosition;
+    o.localPosition = i.vertexPosition.xyz;
     return o;
 }
 
@@ -143,7 +171,9 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
     // Check if the fragment will disappear in next frame
     // If visible now but not on next frame => Generate particles
     float nextTime = (timePassed + _Time_SSFX.y);
-    if (!IsPixelDiscardTimed(timePassed, i.uv, i.worldPosition) && IsPixelDiscardTimed(nextTime, i.uv, i.worldPosition))
+    if (_IsContinousEmmeter 
+        || (!IsPixelDiscardTimed(timePassed, i.uv, i.worldPosition) && IsPixelDiscardTimed(nextTime, i.uv, i.worldPosition))
+        || (IsPixelDiscardSphere(i.worldPosition, _SpherePosition, _SphereRadius) && !IsPixelDiscardSphere(i.worldPosition, _PreviousSpherePosition, _PreviousSphereRadius)))
     {
         // Get the position in the append buffer 
         // and increase counter for other fragments
@@ -158,7 +188,7 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
         ParticleDatas particle;
         particle.worldPosition = i.worldPosition.xyzz;
         particle.color = _CameraColor.SampleLevel(sampler_CameraColor, fragCoords, 0).xyz;
-        
+        particle.startColor = particle.color;
         #if OVERRIDE_MAT 
             // Taking normal from GBuffer allow to use the real normal displayed on screen
             particle.normal = _GBuffer2.SampleLevel(sampler_GBuffer2, fragCoords, 0).xyz;

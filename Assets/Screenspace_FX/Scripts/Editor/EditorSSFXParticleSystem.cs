@@ -169,6 +169,8 @@ public class EditorSSFXParticleSystem : Editor
             targetScript.renderers = renderers.ToArray();
         }
         EditorGUILayout.PropertyField(serializedObject.FindProperty("renderers"));
+
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("playOnAwake"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("durationEffect"));
 
         EditorGUILayout.PropertyField(serializedObject.FindProperty("particleSpawnRate"));
@@ -206,6 +208,13 @@ public class EditorSSFXParticleSystem : Editor
         }
 
         GUILayout.Space(8);
+        targetScript.enableColorOverLifetime = GUILayout.Toggle(targetScript.enableColorOverLifetime, "Enable ColorOverLifetime");
+        if (targetScript.enableColorOverLifetime)
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("colorOverLifetime"));
+        }
+
+        GUILayout.Space(8);
         targetScript.enableTarget = GUILayout.Toggle(targetScript.enableTarget, "Enable Target");
         if (targetScript.enableTarget)
         {
@@ -216,6 +225,20 @@ public class EditorSSFXParticleSystem : Editor
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("targetKillRadius"));
 
         }
+
+        GUILayout.Space(8);
+        targetScript.enableSphereZoneEffect = GUILayout.Toggle(targetScript.enableSphereZoneEffect, "Enable sphere zone effect");
+        if (targetScript.enableSphereZoneEffect)
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("spherePosition"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("sphereRadius"));
+        }
+
+        GUILayout.Space(8);
+        GUILayout.Label("Emission options");
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("isMatAlphaWorldSpace"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("isContinuousEmetter"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("isEmetterInvisible"));
 
         serializedObject.ApplyModifiedProperties();
 

@@ -19,10 +19,12 @@ namespace SSFXParticles
         public int actualFrame;
     }
 
+    // If change are made here, it MUST be replicated to ParticlesCommons.cginc
     struct ParticleDatas
     {
         public Vector4 position;
         public Vector3 color;
+        public Vector3 startColor;
         public float timeApparition;
         public Vector3 normal;
         public float duration;
@@ -77,7 +79,7 @@ namespace SSFXParticles
         {
             datas.particlesDatasBuffer?.Release();
             datas.particlesDatasBuffer = null;
-            datas.previousParticlesDatasBuffer?.Release(); 
+            datas.previousParticlesDatasBuffer?.Release();
             datas.previousParticlesDatasBuffer = null;
             datas.indirectDrawArgs?.Release();
             datas.indirectDrawArgs = null;
@@ -114,7 +116,7 @@ namespace SSFXParticles
         {
             drawingSettings.overrideMaterialPassIndex = 0;
             drawingSettings.overrideMaterial = material;
-            
+
             context.DrawRenderers(renderingData.cullResults, ref drawingSettings, ref filteringSettings);
         }
 
@@ -138,7 +140,7 @@ namespace SSFXParticles
             compute.SetBuffer(setIndirectArgsKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
             compute.SetInt("_MaxParticlesCount", settings.maxParticlesEmitted);
             compute.SetBuffer(setIndirectArgsKernelID, "_IndirectArgs", datas.indirectArgs);
-            
+
             cmd.DispatchCompute(compute, setIndirectArgsKernelID, 1, 1, 1);
         }
 
@@ -176,7 +178,7 @@ namespace SSFXParticles
             }
             compute.SetVector("_Wind", settings.windDirection);
 
-            
+
             cmd.DispatchCompute(compute, simulationKernelID, datas.indirectArgs, sizeof(int) * 3);
         }
 
@@ -185,7 +187,7 @@ namespace SSFXParticles
             ComputeShader compute = settings.particlesComputeShader;
             int clearKernelID = compute.FindKernel("CSClearIndirectDrawArgs");
             compute.SetBuffer(clearKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
-            
+
             cmd.DispatchCompute(compute, clearKernelID, 1, 1, 1);
         }
 
@@ -193,7 +195,7 @@ namespace SSFXParticles
         {
             Material materialParticles = settings.particlesMaterial;
             materialParticles.SetBuffer("_ParticlesDatasBuffer", datas.particlesDatasBuffer);
-            
+
             cmd.DrawMeshInstancedIndirect(settings.particlesMesh, 0, materialParticles, 0, datas.indirectDrawArgs);
         }
     }
