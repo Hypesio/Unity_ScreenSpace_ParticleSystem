@@ -13,16 +13,23 @@ public class LerpTransform : MonoBehaviour
     public AnimationCurve progressCurve = new AnimationCurve(new Keyframe[] { new Keyframe(0, 0), new Keyframe(1, 1) });
 
     public bool playOnAwake;
+    [Header("optionnal")]
+    public float targetKillRadiusTarget;
+    public SSFXParticleSystem particleSystem;
 
     private Vector3 _startScale;
     private float _timeCounter = 0;
     private bool _effectPlaying = false;
+    private float _startTargetKillRadius;
 
     // Start is called before the first frame update
     void Start()
     {
         if (playOnAwake)
             PlayEffect();
+
+
+
     }
 
     // Update is called once per frame
@@ -33,6 +40,12 @@ public class LerpTransform : MonoBehaviour
             float lerpForce = progressCurve.Evaluate(_timeCounter / durationEffect);
             targetTransform.localScale = Vector3.Lerp(_startScale, targetScale, lerpForce);
             _timeCounter += Time.deltaTime;
+
+            if (particleSystem != null)
+            {
+                particleSystem.targetKillRadius = Mathf.Lerp(_startTargetKillRadius, targetKillRadiusTarget, lerpForce);
+            }
+
             if (_timeCounter > durationEffect)
             {
                 targetTransform.localScale = targetScale;
@@ -46,5 +59,7 @@ public class LerpTransform : MonoBehaviour
         _startScale = targetTransform.localScale;
         _effectPlaying = true;
         _timeCounter = 0;
+        if (particleSystem != null)
+            _startTargetKillRadius = particleSystem.targetKillRadius;
     }
 }
