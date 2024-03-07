@@ -6,6 +6,7 @@ using UnityEditor.PackageManager.Requests;
 using UnityEditor;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using SSFXParticles;
 
 [ExecuteAlways]
 public class SSFXParticleSystem : MonoBehaviour
@@ -58,6 +59,9 @@ public class SSFXParticleSystem : MonoBehaviour
     public Vector3 spherePosition;
     public float sphereRadius = 1.0f;
 
+    [Tooltip("Bubffer index decide the shader / meshes and draw order of the particles.")]
+    public int bufferIndex = 0;
+
     private Vector3 previousSpherePosition;
     private float previousSphereRadius;
 
@@ -76,14 +80,13 @@ public class SSFXParticleSystem : MonoBehaviour
     private float _timeCounter;
     private int _indexConfig = 0;
     private bool _reseted = false;
+    private bool _configSet = false;
 
     // Start is called before the first frame update
     void Start()
     {
         SetMats();
-        UpdateConfig();
-        if (playOnAwake)
-            PlayEffect();
+        _configSet = false;
     }
 
     void SetMats()
@@ -110,6 +113,9 @@ public class SSFXParticleSystem : MonoBehaviour
 
     public void UpdateEffect()
     {
+        if (!_configSet)
+            UpdateConfig();
+
         if (_timeCounter >= (_durationEffect + durationMax))
         {
             isPlaying = false;
@@ -187,6 +193,14 @@ public class SSFXParticleSystem : MonoBehaviour
 
     public void UpdateConfig()
     {
+        if (bufferIndex >= SSFXRenderPassUtils.NbBuffers || bufferIndex < 0)
+        {
+            Debug.LogError($"[SSFX] Buffer index invalid ! {bufferIndex}", this);
+            return;
+        }
+
+        _configSet = true;
+
         if (EditorUtils.IsInEditMode())
             SetMats();
 
@@ -205,7 +219,7 @@ public class SSFXParticleSystem : MonoBehaviour
             mat.SetVector("_ParticleEmissionData", new Vector4(_indexConfig, durationMin, durationMax, particleSpawnRate));
             mat.SetVector("_ParticleEmissionData2", new Vector4(startSizeMin, startSizeMax, startSpeedMin, startSpeedMax));
             mat.SetVector("_ParticleEmissionData3", new Vector4((float)startSpeedType, startDirection.x, startDirection.y, startDirection.z));
-            mat.SetVector("_ParticleEmissionData4", new Vector4(isContinuousEmetter ? 1 : 0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, 0));
+            mat.SetVector("_ParticleEmissionData4", new Vector4(isContinuousEmetter ? 1 : 0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, bufferIndex));
             mat.SetVector("_ParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, enableSphereZoneEffect ? sphereRadius : 0));
             mat.SetVector("_PreviousParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, enableSphereZoneEffect ? previousSphereRadius : 0));
         }
@@ -213,7 +227,7 @@ public class SSFXParticleSystem : MonoBehaviour
 
     public void StartEffect(float duration = -1)
     {
-        if (_indexConfig == 0 || _reseted)
+        if (_indexConfig == 0 || _reseted || !_configSet)
         {
             _reseted = false;
             UpdateConfig();
@@ -222,7 +236,7 @@ public class SSFXParticleSystem : MonoBehaviour
         _durationEffect = duration < 0 ? durationEffect : duration;
 
         // Use sharedMaterials in editor to avoid memory leak
-        if (EditorUtils.IsInEditMode())
+        if (EditorUtils.IsInEditMode() || _mats == null)
             SetMats();
 
         foreach (Material mat in _mats)

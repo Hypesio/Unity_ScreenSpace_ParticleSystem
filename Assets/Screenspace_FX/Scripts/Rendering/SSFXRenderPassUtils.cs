@@ -2,20 +2,24 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Mathematics;
+using UnityEditor.Build.Content;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace SSFXParticles
 {
+
     public struct ParticlesBuffer
     {
         public ComputeBuffer particlesDatasBuffer;
         public ComputeBuffer previousParticlesDatasBuffer;
         public ComputeBuffer indirectDrawArgs;
         public ComputeBuffer indirectArgs;
+        public ComputeBuffer maxParticleCounts;
         public int actualFrame;
     }
 
@@ -37,36 +41,77 @@ namespace SSFXParticles
 
     public static class SSFXRenderPassUtils
     {
-        private static int previousMeshVertexCount = 0;
+        private static uint[] previousMeshVertexCount = null;
+        public static int indirectDrawArgsSize = 8;
+        public static int NbBuffers = 0;
 
+        public static int GetMaxParticleCount(SSFXRenderPass.Settings settings)
+        {
+            int maxEmitted = 0;
+            foreach (var bInfo in settings.buffersInfo)
+            {
+                maxEmitted += bInfo.maxParticlesEmitted;
+            }
+            NbBuffers = settings.buffersInfo.Count();
+            return maxEmitted;
+        }
+
+        public static void SetIndirectDrawArgs(ref ParticlesBuffer datas, SSFXRenderPass.Settings settings)
+        {
+            int index = 0;
+            int[] indirectDrawArgs = new int[settings.buffersInfo.Count() * indirectDrawArgsSize];
+
+            bool changes = false;
+            foreach (var bInfo in settings.buffersInfo)
+            {
+                uint vertexCount = bInfo.particlesMesh.GetIndexCount(0);
+                indirectDrawArgs[indirectDrawArgsSize * index] = (int)vertexCount;
+                if (previousMeshVertexCount[index] != vertexCount)
+                    changes = true;
+                previousMeshVertexCount[index] = vertexCount;
+                index++;
+            }
+
+            if (changes)
+                datas.indirectDrawArgs.SetData(indirectDrawArgs);
+        }
         public static void CheckResources(ref ParticlesBuffer datas, SSFXRenderPass.Settings settings)
         {
-            if (datas.particlesDatasBuffer == null || datas.particlesDatasBuffer.count != settings.maxParticlesEmitted)
+            int maxEmitted = GetMaxParticleCount(settings);
+            if (datas.particlesDatasBuffer == null || datas.particlesDatasBuffer.count != maxEmitted)
             {
                 if (datas.particlesDatasBuffer != null)
                     datas.particlesDatasBuffer.Release();
-                datas.particlesDatasBuffer = new ComputeBuffer(settings.maxParticlesEmitted, Marshal.SizeOf(typeof(ParticleDatas)), ComputeBufferType.Structured);
+                datas.particlesDatasBuffer = new ComputeBuffer(maxEmitted, Marshal.SizeOf(typeof(ParticleDatas)), ComputeBufferType.Structured);
+                datas.maxParticleCounts = new ComputeBuffer(settings.buffersInfo.Count(), sizeof(int), ComputeBufferType.Default);
+
+                int[] maxCount = new int[settings.buffersInfo.Count()];
+                for (int i = 0; i < settings.buffersInfo.Count(); i++)
+                {
+                    maxCount[i] = settings.buffersInfo[i].maxParticlesEmitted;
+                }
+                datas.maxParticleCounts.SetData(maxCount);
             }
 
-            if (datas.previousParticlesDatasBuffer == null || datas.previousParticlesDatasBuffer.count != settings.maxParticlesEmitted)
+            if (datas.previousParticlesDatasBuffer == null || datas.previousParticlesDatasBuffer.count != maxEmitted)
             {
                 if (datas.previousParticlesDatasBuffer != null)
                     datas.previousParticlesDatasBuffer.Release();
-                datas.previousParticlesDatasBuffer = new ComputeBuffer(settings.maxParticlesEmitted, Marshal.SizeOf(typeof(ParticleDatas)), ComputeBufferType.Structured);
+                datas.previousParticlesDatasBuffer = new ComputeBuffer(maxEmitted, Marshal.SizeOf(typeof(ParticleDatas)), ComputeBufferType.Structured);
             }
 
-            int vertexCountParticles = (int)settings.particlesMesh.GetIndexCount(0);
             if (datas.indirectDrawArgs == null || !datas.indirectDrawArgs.IsValid())
             {
-                datas.indirectDrawArgs = new ComputeBuffer(8, sizeof(int), ComputeBufferType.IndirectArguments);
-                datas.indirectDrawArgs.SetData(new int[8] { vertexCountParticles, 0, 0, 0, 0, 0, 0, 0 });
+                datas.indirectDrawArgs = new ComputeBuffer(indirectDrawArgsSize * settings.buffersInfo.Count(), sizeof(int), ComputeBufferType.IndirectArguments);
             }
 
-            if (previousMeshVertexCount != vertexCountParticles)
+            if (previousMeshVertexCount == null || previousMeshVertexCount.Count() != settings.buffersInfo.Count()
+                || !datas.indirectDrawArgs.IsValid())
             {
-                datas.indirectDrawArgs.SetData(new int[8] { vertexCountParticles, 0, 0, 0, 0, 0, 0, 0 });
-                previousMeshVertexCount = vertexCountParticles;
+                previousMeshVertexCount = new uint[settings.buffersInfo.Count()];
             }
+
+            SetIndirectDrawArgs(ref datas, settings);
 
             if (datas.indirectArgs == null || !datas.indirectArgs.IsValid())
             {
@@ -100,7 +145,7 @@ namespace SSFXParticles
         public static void SetMaterialDataOpaquePass(CommandBuffer cmd, ParticlesBuffer datas, SSFXRenderPass.Settings settings, RTHandle rtCameraColor)
         {
             Material materialSSFX = settings.overrideMaterial;
-            cmd.SetGlobalInteger("_MaxParticlesCount", settings.maxParticlesEmitted);
+            cmd.SetGlobalBuffer("_MaxParticlesCount", datas.maxParticleCounts);
             cmd.SetGlobalBuffer("_ParticlesDatasBuffer", datas.particlesDatasBuffer);
             cmd.SetGlobalBuffer("_ParticlesDrawArgs", datas.indirectDrawArgs);
             cmd.SetGlobalTexture("_CameraColor", rtCameraColor.rt);
@@ -138,7 +183,7 @@ namespace SSFXParticles
             ComputeShader compute = settings.particlesComputeShader;
             int setIndirectArgsKernelID = compute.FindKernel("CSSetIndirectArgs");
             compute.SetBuffer(setIndirectArgsKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
-            compute.SetInt("_MaxParticlesCount", settings.maxParticlesEmitted);
+            compute.SetBuffer(setIndirectArgsKernelID, "_MaxParticlesCount", datas.maxParticleCounts);
             compute.SetBuffer(setIndirectArgsKernelID, "_IndirectArgs", datas.indirectArgs);
 
             cmd.DispatchCompute(compute, setIndirectArgsKernelID, 1, 1, 1);
@@ -151,9 +196,10 @@ namespace SSFXParticles
             compute.SetBuffer(bufferUnionKernelID, "_ParticlesDatasBuffer", datas.particlesDatasBuffer);
             compute.SetBuffer(bufferUnionKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
             compute.SetBuffer(bufferUnionKernelID, "_PreviousParticlesDatasBuffer", datas.previousParticlesDatasBuffer);
-            compute.SetInt("_MaxParticlesCount", settings.maxParticlesEmitted);
+            compute.SetBuffer(bufferUnionKernelID, "_MaxParticlesCount", datas.maxParticleCounts);
             compute.SetInt("_PrioritizeNewParticles", settings.prioritizeNewParticles ? 1 : 0);
             compute.SetInt("_ActualFrame", datas.actualFrame);
+            compute.SetInt("_NbBuffers", settings.buffersInfo.Count());
 
             cmd.DispatchCompute(compute, bufferUnionKernelID, datas.indirectArgs, 0);
         }
@@ -166,6 +212,7 @@ namespace SSFXParticles
             compute.SetBuffer(simulationKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
             compute.SetFloat("_FloorHeight", settings.floorHeight);
             compute.SetVector("_SimulationBase", new Vector4(settings.gravity, settings.floorHeight, settings.maxParticleSpeed, 0));
+
             //compute.SetVector("_ParticlesTarget", ParticlesTargetHandler.GetTarget());
             ComputeBuffer configs = SSFX.SSFXParticleSystemHandler.UpdateConfigsComputeBuffer();
             if (configs != null)
@@ -187,16 +234,17 @@ namespace SSFXParticles
             ComputeShader compute = settings.particlesComputeShader;
             int clearKernelID = compute.FindKernel("CSClearIndirectDrawArgs");
             compute.SetBuffer(clearKernelID, "_ParticlesDrawArgs", datas.indirectDrawArgs);
+            compute.SetInt("_NbBuffers", settings.buffersInfo.Count());
 
             cmd.DispatchCompute(compute, clearKernelID, 1, 1, 1);
         }
 
-        public static void RenderParticles(CommandBuffer cmd, ParticlesBuffer datas, SSFXRenderPass.Settings settings)
+        public static void RenderParticles(CommandBuffer cmd, ParticlesBuffer datas, SSFXRenderPass.SSFXBufferInfo settings, int bufferIndex)
         {
             Material materialParticles = settings.particlesMaterial;
             materialParticles.SetBuffer("_ParticlesDatasBuffer", datas.particlesDatasBuffer);
 
-            cmd.DrawMeshInstancedIndirect(settings.particlesMesh, 0, materialParticles, 0, datas.indirectDrawArgs);
+            cmd.DrawMeshInstancedIndirect(settings.particlesMesh, 0, materialParticles, 0, datas.indirectDrawArgs, bufferIndex * indirectDrawArgsSize);
         }
     }
 }

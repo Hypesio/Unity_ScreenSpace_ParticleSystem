@@ -863,8 +863,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   targetTransform: {fileID: 314247876}
-  durationEffect: 3
-  targetScale: {x: 3, y: 3, z: 3}
+  durationEffect: 12
+  targetScale: {x: 19.1, y: 19.1, z: 19.1}
   progressCurve:
     serializedVersion: 2
     m_Curve:
@@ -877,6 +877,69 @@ MonoBehaviour:
       weightedMode: 0
       inWeight: 0
       outWeight: 0
+    - serializedVersion: 3
+      time: 0.20146221
+      value: 0.1323919
+      inSlope: 0.04699764
+      outSlope: 0.04699764
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.25877306
+    - serializedVersion: 3
+      time: 0.30614915
+      value: 0.13900599
+      inSlope: 0.2897295
+      outSlope: 0.2897295
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.14596985
+    - serializedVersion: 3
+      time: 0.45588872
+      value: 0.146421
+      inSlope: -0.10044425
+      outSlope: -0.10044425
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.20213617
+    - serializedVersion: 3
+      time: 0.57736254
+      value: 0.14378792
+      inSlope: 0.20029908
+      outSlope: 0.20029908
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.2258543
+    - serializedVersion: 3
+      time: 0.6719044
+      value: 0.15502277
+      inSlope: -0.22602108
+      outSlope: -0.22602108
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.30434814
+    - serializedVersion: 3
+      time: 0.7993097
+      value: 0.14863674
+      inSlope: 0.14285442
+      outSlope: 0.14285442
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.5121279
+    - serializedVersion: 3
+      time: 0.9960185
+      value: 0.14556277
+      inSlope: 0.02090331
+      outSlope: 0.02090331
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.19225039
+      outWeight: 0.2569306
     - serializedVersion: 3
       time: 1
       value: 1
@@ -2576,7 +2639,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &607065282
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2605,8 +2668,8 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 812179510}
-        m_TargetAssemblyTypeName: LerpTransform, Assembly-CSharp
+      - m_Target: {fileID: 812179511}
+        m_TargetAssemblyTypeName: SSFXParticleSystem, Assembly-CSharp
         m_MethodName: PlayEffect
         m_Mode: 1
         m_Arguments:
@@ -2629,8 +2692,8 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 812179510}
-        m_TargetAssemblyTypeName: SSFXParticleSystem, Assembly-CSharp
+      - m_Target: {fileID: 812179515}
+        m_TargetAssemblyTypeName: LerpTransform, Assembly-CSharp
         m_MethodName: PlayEffect
         m_Mode: 1
         m_Arguments:
@@ -2673,7 +2736,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1435899049}
+      - m_Target: {fileID: 1435899050}
         m_TargetAssemblyTypeName: SSFXParticleSystem, Assembly-CSharp
         m_MethodName: ResetEffect
         m_Mode: 1
@@ -2689,6 +2752,30 @@ MonoBehaviour:
         m_TargetAssemblyTypeName: UnityEngine.Behaviour, UnityEngine
         m_MethodName: set_enabled
         m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 812179515}
+        m_TargetAssemblyTypeName: LerpTransform, Assembly-CSharp
+        m_MethodName: ResetEffect
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 314247877}
+        m_TargetAssemblyTypeName: LerpTransform, Assembly-CSharp
+        m_MethodName: ResetEffect
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -3151,7 +3238,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &812179511
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3232,6 +3319,7 @@ MonoBehaviour:
   enableSphereZoneEffect: 0
   spherePosition: {x: 0, y: 0, z: 0}
   sphereRadius: 1
+  bufferIndex: 0
   isContinuousEmetter: 1
   isMatAlphaWorldSpace: 0
   isEmetterInvisible: 1
@@ -3294,7 +3382,7 @@ Transform:
   m_GameObject: {fileID: 812179510}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -5.37, y: 1.95, z: 3.64}
+  m_LocalPosition: {x: -5.37, y: 2.37, z: 3.64}
   m_LocalScale: {x: 0.62, y: 0.62, z: 0.62}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -3313,8 +3401,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   targetTransform: {fileID: 812179514}
-  durationEffect: 3
-  targetScale: {x: 5.6, y: 5.6, z: 5.6}
+  durationEffect: 12
+  targetScale: {x: 21.92, y: 21.92, z: 21.92}
   progressCurve:
     serializedVersion: 2
     m_Curve:
@@ -3327,6 +3415,33 @@ MonoBehaviour:
       weightedMode: 0
       inWeight: 0
       outWeight: 0
+    - serializedVersion: 3
+      time: 0.20351696
+      value: 0.14602827
+      inSlope: 0.25787747
+      outSlope: 0.25787747
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.19347762
+    - serializedVersion: 3
+      time: 0.69397575
+      value: 0.2028324
+      inSlope: 0.87738013
+      outSlope: 0.87738013
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.18432944
+      outWeight: 0.2569306
+    - serializedVersion: 3
+      time: 0.9793162
+      value: 0.94854665
+      inSlope: 0.087869495
+      outSlope: 0.087869495
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 1
     - serializedVersion: 3
       time: 1
       value: 1
@@ -4150,7 +4265,7 @@ MonoBehaviour:
   - {fileID: 454988516}
   - {fileID: 550029860}
   playOnAwake: 1
-  durationEffect: 212.7
+  durationEffect: 11.8
   durationMin: 10
   durationMax: 20.8
   particleSpawnRate: 0.5
@@ -4256,10 +4371,11 @@ MonoBehaviour:
   particlesTarget: {fileID: 1834755621}
   particlesTargetAttractionForce: 1.67
   particleDieWhenReachingTarget: 1
-  targetKillRadius: 0.35
+  targetKillRadius: 0.79
   enableSphereZoneEffect: 1
   spherePosition: {x: -5.37, y: 2.37, z: 3.64}
   sphereRadius: 0.95
+  bufferIndex: 0
   isContinuousEmetter: 0
   isMatAlphaWorldSpace: 0
   isEmetterInvisible: 0

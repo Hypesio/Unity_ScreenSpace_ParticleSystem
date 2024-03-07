@@ -13,10 +13,10 @@
 
 uniform RWStructuredBuffer<ParticleDatas> _ParticlesDatasBuffer : register(u1);
 uniform RWBuffer<int> _ParticlesDrawArgs : register(u2);
-#define _ParticlesCounter _ParticlesDrawArgs[1]
+
 
 // Uniform set for whole pass
-uniform int _MaxParticlesCount;
+uniform Buffer<int> _MaxParticlesCount;
 uniform Texture2D<float4> _CameraColor;
 SamplerState sampler_CameraColor;
 uniform Texture2D<float4> _GBuffer2;
@@ -29,12 +29,15 @@ uniform float4 _ParticleEmissionData;
 uniform float4 _ParticleEmissionData2;
 // startSpeedType, startSpeedX, startSpeedY, startSpeedZ
 uniform float4 _ParticleEmissionData3;
-// IsContinuousEmetter, IsAlphaWorldSpace, IsEmetterInvsibile, ?
+// IsContinuousEmetter, IsAlphaWorldSpace, IsEmetterInvsibile, BufferIndex
 uniform float4 _ParticleEmissionData4;
 
 #define _IsContinousEmmeter _ParticleEmissionData4.x
 #define _IsAlphaWorldSpace _ParticleEmissionData4.y
 #define _IsEmetterinvisible _ParticleEmissionData4.z
+#define _BufferIndex _ParticleEmissionData4.w
+
+#define _ParticlesCounter _ParticlesDrawArgs[1 + INDIRECT_DRAW_ARGS_SIZE * _BufferIndex]
 
 // Data update each frame
 // SpherePosition.x, SpherePosition.x, SpherePosition.x, SphereRadius
@@ -148,6 +151,14 @@ FragmentInputSSFXGeneration vertSSFXGeneration(VertexInputSSFXGeneration i)
     return o;
 }
 
+int GetBufferStartIndex()
+{
+    int startIndex = 0;
+    for (int i = 0; i < _BufferIndex; i++)
+        startIndex += _MaxParticlesCount[i];
+    return startIndex;
+}
+
 /** 
 Emit particles if new part of the mesh are transparent 
 Enable DEBUG_RENDER_MESH to check if a mesh is render in this pass
@@ -159,8 +170,8 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
 #endif
 {
     float randomFloat = RandomFloat(i.fragmentPosition.xy + float2(_Time_SSFX.x, _Time_SSFX.x));
-
-    if (_ParticlesCounter >= _MaxParticlesCount || _ParticleEmissionData.w < randomFloat)
+    
+    if (_ParticlesCounter >= _MaxParticlesCount[_BufferIndex] || _ParticleEmissionData.w < randomFloat)
         return DEBUG_RENDER_MESH_COLOR;
 
     float timePassed = _TimeProgressEffect;
@@ -179,7 +190,7 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
         // and increase counter for other fragments
         int index = 0;
         InterlockedAdd(_ParticlesCounter, 1, index);
-        if (index >= _MaxParticlesCount)
+        if (index - GetBufferStartIndex() >= _MaxParticlesCount[_BufferIndex])
             return DEBUG_RENDER_MESH_COLOR;
 
         // Add values from GBuffer to the particles datas buffer

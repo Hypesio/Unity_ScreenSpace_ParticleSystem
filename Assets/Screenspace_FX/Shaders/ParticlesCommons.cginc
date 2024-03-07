@@ -1,6 +1,9 @@
 #ifndef PARTICLES_COMMONS
 #define PARTICLES_COMMONS
 
+
+#define INDIRECT_DRAW_ARGS_SIZE 8
+
 // x = time since startup in second, 
 // y = deltatime 
 uniform float4 _Time_SSFX; 

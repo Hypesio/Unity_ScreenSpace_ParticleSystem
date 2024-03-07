@@ -17,14 +17,15 @@
 // 4 - PreviousInstanceCount
 // 5 - FrameNumber
 // 6 - Index if buffer full
+// 7 - Unused
 uniform RWBuffer<int> _ParticlesDrawArgs;
-#define _ParticlesCounter _ParticlesDrawArgs[1]
 
 uniform RWStructuredBuffer<ParticleDatas> _ParticlesDatasBuffer;
 uniform StructuredBuffer<ParticleDatas> _PreviousParticlesDatasBuffer;
 uniform StructuredBuffer<ParticlesConfig> _ParticlesConfigs;
-uniform int _MaxParticlesCount;
+uniform Buffer<int> _MaxParticlesCount;
 uniform int _PrioritizeNewParticles;
+uniform int _NbBuffers;
 
 // Move variables
 // x = Gravity, y = _FloorHeight, z = MaxSpeed, w = ?
@@ -43,16 +44,76 @@ uniform RWBuffer<int> _IndirectArgs; // buffer union args, simulation args
 
 #define TRANSFORM_TEX(tex,name) (tex.xy * name##_ST.xy + name##_ST.zw)
 
+#define PARTICLE_COUNTER(bufferIndex) _ParticlesDrawArgs[1 + bufferIndex * INDIRECT_DRAW_ARGS_SIZE]
+
+// Result could be in shared memory ? 
+// Need optimisations
+int GetBufferIndex(int warpIndex, out int indexOffseted, out int maxParticleCount)
+{
+    int startInBufferIndex = 0;
+    for (int i = 0; i < _NbBuffers; i++)
+    {
+        int maxCount = _MaxParticlesCount[i]; 
+        if (startInBufferIndex + maxCount > warpIndex)
+        {
+            indexOffseted = warpIndex - startInBufferIndex;
+            maxParticleCount = maxCount;
+            return i;
+        }
+        
+        startInBufferIndex += maxCount;
+    }
+    indexOffseted = 0;
+    maxParticleCount = 0;
+    return 0;
+}
+
+// Return the particle index of a warp. To use only in Simulation
+// Warp number ~= particle to simulate
+int GetIndexInBuffer(int warpIndex)
+{
+    int startInBufferIndex = 0;
+    int particlePassed = 0;
+    int particlesCount;
+    int maxCount;
+    for (int i = 0; i < _NbBuffers; i++)
+    {
+        particlesCount = PARTICLE_COUNTER(i); 
+        maxCount = _MaxParticlesCount[i]; 
+
+        if (startInBufferIndex + particlesCount > warpIndex)
+        {
+            return startInBufferIndex + (warpIndex - particlePassed);
+        }
+        
+        particlePassed += particlesCount;
+        startInBufferIndex += maxCount;
+    }
+    return -1;
+}
+
 /** 
 Set the threads value for dispatch indirect
 **/
 [numthreads(1,1,1)]
 void CSSetIndirectArgs (uint3 id : SV_DispatchThreadID)
 {
-    int argsUnion = ceil(float(_ParticlesDrawArgs[4]) / WARP_SIZE);
+    float maxParticlesToSimulate = 0;
+    float totalMaxParticles = 0;
+    float previousTotalparticles = 0;
+    int previousSize;
+    for (int i = 0; i < _NbBuffers; i++)
+    {
+        previousSize = _ParticlesDrawArgs[4 + INDIRECT_DRAW_ARGS_SIZE * i];
+        previousTotalparticles += previousSize;
+        maxParticlesToSimulate += PARTICLE_COUNTER(i) + previousSize;
+        totalMaxParticles += _MaxParticlesCount[i];
+    }
+
+    int argsUnion = ceil(float(previousTotalparticles) / WARP_SIZE);
     _IndirectArgs[0] = argsUnion;
-    
-    float maxParticlesToSimulate = min(_ParticlesCounter + _ParticlesDrawArgs[4], _MaxParticlesCount);
+
+    maxParticlesToSimulate = min(maxParticlesToSimulate, totalMaxParticles);
     int argsSimulation = ceil(maxParticlesToSimulate / WARP_SIZE);
     _IndirectArgs[3] = argsSimulation;
 }
@@ -60,9 +121,13 @@ void CSSetIndirectArgs (uint3 id : SV_DispatchThreadID)
 [numthreads(1,1,1)]
 void CSClearIndirectDrawArgs (uint3 id : SV_DispatchThreadID)
 {
-    // Set the previous counter with actual buffer size
-    _ParticlesDrawArgs[4] = _ParticlesDrawArgs[1];
-    _ParticlesDrawArgs[1] = 0;
+    // Set the counters with actual buffer size
+    for (int i = 0; i < _NbBuffers; i++)
+    {
+        int index = INDIRECT_DRAW_ARGS_SIZE * i;
+        _ParticlesDrawArgs[index + 4] = _ParticlesDrawArgs[index + 1];
+        _ParticlesDrawArgs[index + 1] = 0;
+    }
 }
 
 /**
@@ -71,8 +136,8 @@ Here we handle the movements of the particles
 [numthreads(WARP_SIZE,1,1)]
 void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
 {
-    int particleIndex = id.x;
-    if (particleIndex > _ParticlesCounter)
+    int particleIndex = GetIndexInBuffer(id.x);
+    if (particleIndex == -1)
         return;
     
     ParticleDatas datas = _ParticlesDatasBuffer[particleIndex]; 
@@ -102,10 +167,6 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         else 
             datas.color.rgb = GetCurveColor(config.grad_colorOverLifetime, lifeProgress);
     }
-
-    //if (config.flagsFeature & FLAG_ALPHA_OVER_LIFETIME)
-
-
 
     float2 uv = datas.worldPosition.xy * _NoiseMap_ST.xy;
     
@@ -161,26 +222,31 @@ to the buffer of new particles
 [numthreads(WARP_SIZE,1,1)]
 void CSBufferUnion (uint id : SV_DispatchThreadID)
 {
-    int bufferIndex = id.x;
-    int previousBufferSize = _ParticlesDrawArgs[4];
+    // We have to access buffer in different part
+    // One part = one buffer config (different mesh/material/etc...)
+    int indexOffseted; 
+    int maxParticleCount;
+    int bufferIndex = GetBufferIndex(id.x, indexOffseted, maxParticleCount);
+    int previousBufferSize = _ParticlesDrawArgs[4 + INDIRECT_DRAW_ARGS_SIZE * bufferIndex];
 
-    if (bufferIndex > previousBufferSize)
+    if (indexOffseted > previousBufferSize)
         return;
     
     if (!_PrioritizeNewParticles)
         bufferIndex = previousBufferSize - id.x;
     
-    if (_ParticlesCounter >= _MaxParticlesCount)
+    if (PARTICLE_COUNTER(bufferIndex) >= maxParticleCount)
         return;
 
     ParticleDatas particle = _PreviousParticlesDatasBuffer[bufferIndex];
     float timeLived = _Time_SSFX.x - particle.timeApparition;
+    // Check if the particle is still alive
     if (timeLived < particle.duration && particle.duration > 0) 
     {
-        // Check if the particle is still alive
-        int indexNewBuffer;
-        InterlockedAdd(_ParticlesCounter, 1, indexNewBuffer);
-        if (indexNewBuffer >= _MaxParticlesCount)
+        // Get new particle position in buffer
+        int indexInNewBuffer;
+        InterlockedAdd(PARTICLE_COUNTER(bufferIndex), 1, indexInNewBuffer);
+        if (indexInNewBuffer >= maxParticleCount)
         {
             if (_PrioritizeNewParticles)
                 return;
@@ -188,9 +254,9 @@ void CSBufferUnion (uint id : SV_DispatchThreadID)
             {
                 // Replace new particles by older at the beginning of the buffer
                 // _ParticlesDrawArgs[6] is the index to use if buffer is full
-                InterlockedAdd(_ParticlesDrawArgs[6], 1, indexNewBuffer);
+                InterlockedAdd(_ParticlesDrawArgs[6 + INDIRECT_DRAW_ARGS_SIZE * bufferIndex], 1, indexInNewBuffer);
             }
         }
-        _ParticlesDatasBuffer[indexNewBuffer] = particle;
+        _ParticlesDatasBuffer[indexInNewBuffer] = particle;
     }
 }

@@ -1,4 +1,4 @@
-Shader "Hypesio/Particles"
+Shader "SSFX/Particles"
 {
     Properties
     {
@@ -6,6 +6,7 @@ Shader "Hypesio/Particles"
     }
     SubShader
     {
+        
         Pass
         {
 			HLSLPROGRAM

@@ -47,4 +47,9 @@ public class LerpTransform : MonoBehaviour
         _effectPlaying = true;
         _timeCounter = 0;
     }
+
+    public void ResetEffect()
+    {
+        targetTransform.localScale = _startScale;
+    }
 }

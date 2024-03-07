@@ -9,6 +9,8 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using Unity.Mathematics;
 using UnityEditor;
+using UnityEditor.Rendering;
+using System.Runtime.Serialization.Formatters.Binary;
 
 public class SSFXRenderPass : ScriptableRendererFeature
 {
@@ -56,7 +58,7 @@ public class SSFXRenderPass : ScriptableRendererFeature
         {
             rtCameraColor = renderingData.cameraData.renderer.cameraColorTargetHandle;
             rtCameraDepth = renderingData.cameraData.renderer.cameraDepthTargetHandle;
-            
+
             // Create a Depth Target
             var depthDesc = renderingData.cameraData.cameraTargetDescriptor;
             depthDesc.depthBufferBits = 32; // should be default anyway
@@ -80,14 +82,14 @@ public class SSFXRenderPass : ScriptableRendererFeature
             if (settings.enableDebug)
                 Debug.Log("[SSFX] Execute SSFX Render Pass");
 
-            if (settings.maxParticlesEmitted == 0)
+            if (settings.buffersInfo.Count() == 0)
             {
                 Debug.LogWarning("[SSFXRender] Can't render ssfx particles. MaxParticles setting at 0");
                 return;
             }
 
             CommandBuffer cmd = CommandBufferPool.Get();
-            
+
             //using (new ProfilingScope(cmd, _profilingSampler))
             {
                 Blitter.BlitCameraTexture(cmd, rtCameraColor, rtColorCopy);
@@ -111,10 +113,10 @@ public class SSFXRenderPass : ScriptableRendererFeature
                 DrawingSettings drawingSettings = CreateDrawingSettings(shaderTagsList, ref renderingData, sortingCriteria);
                 DrawingSettings drawingSettingsOverride = CreateDrawingSettings(shaderTagsListMatOverride, ref renderingData, sortingCriteria);
                 //drawingSettings.SetShaderPassName(0, new ShaderTagId("OpaqueSSFXPass"));
-                
+
                 //*** Depth prepass ***// Avoid to draw multiple particles per pixel
                 //SSFXRenderPassUtils.RenderDepthPrepass(context, renderingData, drawingSettings, filteringSettingsOverride, settings.overrideMaterial);
-                
+
                 //*** Opaque pass - Generate new particles ***//
                 SSFXRenderPassUtils.SetMaterialDataOpaquePass(cmd, ssfxDatas, settings, rtColorCopy);
                 SSFXRenderPassUtils.RenderOpaque(context, renderingData, drawingSettings, filteringSettingsGeneric);
@@ -126,17 +128,22 @@ public class SSFXRenderPass : ScriptableRendererFeature
 
                 //*** Particle Buffer Union - Merge old and new particles in the same buffer ***//
                 SSFXRenderPassUtils.ComputeParticlesBufferUnion(cmd, ssfxDatas, settings);
-   
+
                 //*** Particle Simulation - Handle the mouvement of the particles ***//
                 SSFXRenderPassUtils.ComputeParticlesSimulation(cmd, ssfxDatas, settings);
 
+                //SSFXRenderPassUtils.GetParticlesEmittedCount(ssfxDatas, settings);
+
                 //** Particle Draw Pass **//
-                SSFXRenderPassUtils.GetParticlesEmittedCount(ssfxDatas, settings);
-                SSFXRenderPassUtils.RenderParticles(cmd, ssfxDatas, settings);
-                
+                for (int i = 0; i < settings.buffersInfo.Count(); i++)
+                {
+                    SSFXBufferInfo bInfo = settings.buffersInfo[i];
+                    SSFXRenderPassUtils.RenderParticles(cmd, ssfxDatas, bInfo, i);
+                }
+
                 ssfxDatas.actualFrame += 1;
 
-                
+
                 ComputeBuffer tmp = ssfxDatas.previousParticlesDatasBuffer;
                 ssfxDatas.previousParticlesDatasBuffer = ssfxDatas.particlesDatasBuffer;
                 ssfxDatas.particlesDatasBuffer = tmp;
@@ -164,14 +171,22 @@ public class SSFXRenderPass : ScriptableRendererFeature
     CustomRenderPass m_ScriptablePass;
 
     [System.Serializable]
+    public struct SSFXBufferInfo
+    {
+        public int maxParticlesEmitted;
+        public Material particlesMaterial;
+        public Mesh particlesMesh;
+    }
+
+    [System.Serializable]
     public class Settings
     {
         [Header("Global Renderers Settings")]
         public LayerMask layerMaskMaterialOverride = 1;
-        public int maxParticlesEmitted = 10000;
-        public Material particlesMaterial;
+
+        public SSFXBufferInfo[] buffersInfo;
+
         public ComputeShader particlesComputeShader;
-        public Mesh particlesMesh;
         public bool prioritizeNewParticles;
         public bool enableDebug;
         public float floorHeight;
@@ -179,13 +194,13 @@ public class SSFXRenderPass : ScriptableRendererFeature
         public float maxParticleSpeed = 2;
         public Texture noiseMap;
         [Tooltip("XY = Tilling, Z = Strength, W = ?")]
-        public Vector4 noiseMapSettings = new Vector4(1,1,0,0);
+        public Vector4 noiseMapSettings = new Vector4(1, 1, 0, 0);
         [Tooltip("XYZ = direction, W = speed")]
         public Vector4 windDirection;
 
         [Header("Override Settings")]
         public Material overrideMaterial;
-        
+
     }
 
     public Settings settings;
