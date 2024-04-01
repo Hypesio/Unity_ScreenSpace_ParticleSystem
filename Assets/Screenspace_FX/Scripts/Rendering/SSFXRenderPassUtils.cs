@@ -33,6 +33,10 @@ namespace SSFXParticles
         public float startSize;
         public float size;
         public float startMaxSpeed;
+        // - 
+        public int splineFollowIndex;
+        public int splineCurrentStep;
+        public float splineOffset;
     }
 
     public static class SSFXRenderPassUtils
@@ -170,6 +174,12 @@ namespace SSFXParticles
             ComputeBuffer configs = SSFX.SSFXParticleSystemHandler.UpdateConfigsComputeBuffer();
             if (configs != null)
                 compute.SetBuffer(simulationKernelID, "_ParticlesConfigs", configs);
+
+            int splineCount = SSFX.SSFXParticleSystemHandler.GetSplinesBuffers(out ComputeBuffer splinePositions, out ComputeBuffer splinesInfo);
+            compute.SetInt("_SplineCount", splineCount);
+
+            compute.SetBuffer(simulationKernelID, "_SplinesInfos", splinesInfo);
+            compute.SetBuffer(simulationKernelID, "_SplinesPositions", splinePositions);
 
             if (settings.noiseMap != null)
             {

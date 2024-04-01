@@ -5,7 +5,8 @@
 // y = deltatime 
 uniform float4 _Time_SSFX; 
 
-// If change are made here, it MUST be replicated to SSFXRenderPassUtils.cs
+// If change are made here, it MUST be replicated to SSFXRenderPassUtils.cs.
+// Could be really optimize by packing datas and aligned memory usage.
 struct ParticleDatas
 {
     float4 worldPosition;
@@ -19,6 +20,18 @@ struct ParticleDatas
     float startSize;
     float size;
     float startSpeed;
+
+    int splineFollowIndex;
+    int splineCurrentStep;
+    float splineOffset;
+};
+
+struct SplineInfos
+{
+    float3 borderMin;
+    float3 borderMax;
+    int indexStartPositions;
+    int positionsCount;
 };
 
 #define SSFX_MAX_GRAD_KEYS 10
@@ -30,7 +43,9 @@ struct ParticleDatas
 #define FLAG_SPEED_OVER_LIFETIME (1 << 6)
 #define FLAG_KILL_ALL (1 << 7)
 #define FLAG_TARGET_DIE_ON_REACH (1 << 8)
+#define FLAG_FOLLOW_SPLINE (1 << 9)
 
+// If change are made here, it MUST be replicated to SSFXParticleSystemHandle.cs.
 struct ParticlesConfig {
     // used to tell in shader what to use or not
     int flagsFeature;

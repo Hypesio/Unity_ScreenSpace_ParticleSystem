@@ -10,6 +10,10 @@ public class EditorSplineCreator : Editor
     private Vector3 _previousMousePositionOnPlane;
     private Vector3 _mouseMovePlaneNormal;
 
+    private SplinePoint[] previousPoints;
+    private float prevStepCount = 0;
+    private float prevPrecisionCount = 0;
+
     void OnEnable()
     {
         targetScript = (SplineCreator)target;
@@ -17,7 +21,7 @@ public class EditorSplineCreator : Editor
 
     void MouseClick(Event e)
     {
-        BezierCubicPoint[] points = targetScript.points;
+        SplinePoint[] points = targetScript.points;
 
         Camera cam = SceneView.currentDrawingSceneView.camera;
         float ySize = SceneView.currentDrawingSceneView.cameraViewport.size.y;
@@ -33,7 +37,7 @@ public class EditorSplineCreator : Editor
         bool closestIsInfluencer = false;
         for (int i = 0; i < points.Length; i++)
         {
-            float dist = Vector3.Distance(Vector3.ProjectOnPlane(points[i].point, _mouseMovePlaneNormal), mousePosition);
+            float dist = Vector3.Distance(Vector3.ProjectOnPlane(points[i].point.point, _mouseMovePlaneNormal), mousePosition);
             if (dist < closestDist)
             {
                 closestPoint = i;
@@ -42,7 +46,7 @@ public class EditorSplineCreator : Editor
             }
 
             //Debug.DrawLine(mousePosition, Vector3.ProjectOnPlane(points[i].point, _mouseMovePlaneNormal), Color.red, 0.4f);
-            dist = Vector3.Distance(Vector3.ProjectOnPlane(points[i].point + points[i].influencer, _mouseMovePlaneNormal), mousePosition);
+            dist = Vector3.Distance(Vector3.ProjectOnPlane(points[i].point.point + points[i].point.influencer, _mouseMovePlaneNormal), mousePosition);
             if (dist < closestDist)
             {
                 closestPoint = i;
@@ -67,13 +71,13 @@ public class EditorSplineCreator : Editor
             Vector3 offset = mousePosition - _previousMousePositionOnPlane;
             if (!targetScript._influencerSelected)
             {
-                Vector3 onPlane = Vector3.ProjectOnPlane(targetScript.points[targetScript._indexSelectedPoint].point, _mouseMovePlaneNormal);
-                targetScript.points[targetScript._indexSelectedPoint].point += (mousePosition - onPlane);
+                Vector3 onPlane = Vector3.ProjectOnPlane(targetScript.points[targetScript._indexSelectedPoint].point.point, _mouseMovePlaneNormal);
+                targetScript.points[targetScript._indexSelectedPoint].point.point += (mousePosition - onPlane);
             }
             else
             {
-                Vector3 onPlane = Vector3.ProjectOnPlane(targetScript.points[targetScript._indexSelectedPoint].point + targetScript.points[targetScript._indexSelectedPoint].influencer, _mouseMovePlaneNormal);
-                targetScript.points[targetScript._indexSelectedPoint].influencer += (mousePosition - onPlane);
+                Vector3 onPlane = Vector3.ProjectOnPlane(targetScript.points[targetScript._indexSelectedPoint].point.point + targetScript.points[targetScript._indexSelectedPoint].point.influencer, _mouseMovePlaneNormal);
+                targetScript.points[targetScript._indexSelectedPoint].point.influencer += (mousePosition - onPlane);
             }
 
             _previousMousePositionOnPlane = mousePosition;
@@ -91,5 +95,50 @@ public class EditorSplineCreator : Editor
 
         if (e.type == EventType.KeyDown && e.keyCode == KeyCode.LeftControl)
             MouseDrag(e);
+    }
+
+    public override void OnInspectorGUI()
+    {
+
+        if (GUILayout.Button("Add point"))
+        {
+            targetScript.AddPoint(targetScript._indexSelectedPoint);
+            targetScript.UpdateSplineDatas();
+        }
+        else if (GUI.changed)
+        {
+            targetScript.UpdateSplineDatas();
+        }
+        else if (previousPoints != null && previousPoints.Length != targetScript.points.Length)
+        {
+            targetScript.UpdateSplineDatas();
+        }
+        else if (previousPoints != null)
+        {
+            for (int i = 0; i < previousPoints.Length; i++)
+            {
+                BezierCubicPoint p0 = previousPoints[i].point;
+                BezierCubicPoint p1 = targetScript.points[i].point;
+
+                if (p0.point != p1.point || p0.influencer != p1.influencer || previousPoints[i].width != targetScript.points[i].width)
+                {
+                    targetScript.UpdateSplineDatas();
+                    break;
+                }
+            }
+        }
+        else if (targetScript.debug_displayPointCount != prevStepCount || targetScript.debug_displayPrecisionStep != prevPrecisionCount)
+        {
+            prevStepCount = targetScript.debug_displayPointCount;
+            prevPrecisionCount = targetScript.debug_displayPrecisionStep;
+            targetScript.UpdateSplineDatas();
+        }
+
+        if (previousPoints == null || previousPoints.Length != targetScript.points.Length)
+            previousPoints = new SplinePoint[targetScript.points.Length];
+
+        targetScript.points.CopyTo(previousPoints, 0);
+
+        base.OnInspectorGUI();
     }
 }

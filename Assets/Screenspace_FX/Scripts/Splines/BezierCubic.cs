@@ -23,32 +23,19 @@ public struct BezierCubicPoint
 
 public static class BezierCubic
 {
-    // TMP should move somewhere else
-    public static void PrintValues(Vector3[] values)
-    {
-        string msg = "";
-        foreach (var v in values)
-            msg += $" {v} ";
-        Debug.Log(msg);
-    }
-
-    // TMP should move somewhere else
-    public static void PrintValues(float[] values)
-    {
-        string msg = "";
-        foreach (var v in values)
-            msg += $" {v} ";
-        Debug.Log(msg);
-    }
 
     // Returns an array of positions along a series of cubic bezier points.
     // nbPositions is the number of point to compute. They are uniformly distributed along space.
     // nbSteps is the precision wanted. More steps = better precision. 
-    public static Vector3[] GetPositions(BezierCubicPoint[] points, int nbPositions, int nbSteps = 100)
+    // progressInPart is the distance progress (range 0-1) of each point in their curve segment.
+    public static Vector3[] GetPositions(BezierCubicPoint[] points, int nbPositions, out (int, float)[] progressInPart, int nbSteps = 100)
     {
+        progressInPart = new (int, float)[nbPositions];
         // Can't get positions for a single point
         if (points.Length == 1)
             return new Vector3[] { points[0].point };
+
+
 
         float totalArcLength = GetLength(points, out float[] partsLength, nbSteps * (points.Length - 1));
         Vector3[] res = new Vector3[nbPositions];
@@ -83,6 +70,7 @@ public static class BezierCubic
             // Get position
             float step = DistanceToStep(currentLUT, currentDistance - currentTotalLengthFloor);
             res[i] = GetPosition(points[currentPart], points[currentPart + 1], step);
+            progressInPart[i] = (currentPart, (currentDistance - currentTotalLengthFloor) / currentLUT[currentLUT.Length - 1]);
             currentDistance += distStep;
         }
 
@@ -91,6 +79,21 @@ public static class BezierCubic
         return res;
     }
 
+    // Returns the derivative of a point => spline 'forward' direction
+    // Can also be used to get point normal
+    public static Vector3 GetDerivative(BezierCubicPoint pointA, BezierCubicPoint pointB, float step)
+    {
+        float stepSquare = step * step;
+        Vector3 aInfluencer = pointA.point + pointA.influencer;
+        Vector3 bInfluencer = pointB.point + pointB.influencer;
+
+        Vector3 a = pointA.point * (-3 * stepSquare + 6 * step - 3);
+        Vector3 b = aInfluencer * (9 * stepSquare - 12 * step + 3);
+        Vector3 c = bInfluencer * (-9 * stepSquare + 6 * step);
+        return a + b + c + 3 * pointB.point * stepSquare;
+    }
+
+    // Converts a distance to a step 't' used to get point in spline.
     public static float DistanceToStep(float[] LUT, float distance)
     {
         if (LUT.Length == 0)

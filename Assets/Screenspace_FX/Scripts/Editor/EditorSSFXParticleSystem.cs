@@ -235,6 +235,15 @@ public class EditorSSFXParticleSystem : Editor
         }
 
         GUILayout.Space(8);
+        targetScript.enableFollowSpline = GUILayout.Toggle(targetScript.enableFollowSpline, "Enable spline following");
+        if (targetScript.enableFollowSpline)
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("followType"));
+            if (targetScript.followType == SSFXParticleSystem.FollowSplineType.UseFixedSpline)
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("splineToFollow"));
+        }
+
+        GUILayout.Space(8);
         GUILayout.Label("Emission options");
         EditorGUILayout.PropertyField(serializedObject.FindProperty("isMatAlphaWorldSpace"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("isContinuousEmetter"));

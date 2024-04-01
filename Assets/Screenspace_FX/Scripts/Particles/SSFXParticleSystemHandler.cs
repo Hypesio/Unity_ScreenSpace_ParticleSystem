@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Unity.VisualScripting;
+using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEditor.Rendering;
 using UnityEngine;
+using UnityEngine.Timeline;
 
 namespace SSFX
 {
@@ -18,8 +21,11 @@ namespace SSFX
         SpeedOverLifetime = 1 << 6,
         KillAll = 1 << 7,
         TargetDieOnReach = 1 << 8,
+        FollowSpline = 1 << 9,
+
     }
 
+    // If change are made here, it MUST be replicated to ParticlesCommon.cginc.
     unsafe public struct SSFXParticleConfig
     {
         // used to tell in shader what to use or not
@@ -39,13 +45,27 @@ namespace SSFX
         public Vector4 targetDatas;
     }
 
+    public struct SSFXSplineInfos
+    {
+        public BoundingBox box;
+        public int startPositionIndex;
+        public int splineNbSteps;
+    }
+
+
     public static class SSFXParticleSystemHandler
     {
+        private static List<SplineCreator> splines;
         private static int MAX_GRADIENT_KEYS = 10;
         private static int INVALID_FLOAT = 65536;
         private static List<SSFXParticleConfig> _configs = null;
         private static List<Transform> _configsTargets = null;
         private static ComputeBuffer _configsBuffer = null;
+
+        // Contains SSFXSplineInfos[].
+        private static ComputeBuffer _splinesInfo = new ComputeBuffer(1, 4);
+        // Vec4 => xyz - positions, w - width.
+        private static ComputeBuffer _splinesPositions = new ComputeBuffer(1, 4);
 
         // Used to know when _configs data need to be updated on GPU
         // Set to true on _configs changes
@@ -304,6 +324,101 @@ namespace SSFX
             }
 
             return _configsBuffer;
+        }
+
+
+        public static int GetSplinesBuffers(out ComputeBuffer splinePositions, out ComputeBuffer splinesInfo)
+        {
+
+            splinePositions = _splinesPositions;
+            splinesInfo = _splinesInfo;
+
+            if (splines == null)
+            {
+                Debug.Log($"SplineGetted 0");
+                return 0;
+            }
+
+            bool updateBuffers = false;
+            for (int i = 0; i < splines.Count; i++)
+            {
+                if (splines[i].isDirty)
+                {
+                    updateBuffers = true;
+                    break;
+                }
+            }
+
+            if (!updateBuffers)
+                return splines.Count();
+
+            Debug.Log("Update spline buffers");
+
+            if (_splinesInfo != null)
+                _splinesInfo.Release();
+            _splinesInfo = new ComputeBuffer(splines.Count, Marshal.SizeOf(typeof(SSFXSplineInfos)));
+
+            SSFXSplineInfos[] infos = new SSFXSplineInfos[splines.Count];
+
+            int totalSplineSteps = 0;
+            for (int i = 0; i < splines.Count; i++)
+            {
+                splines[i].isDirty = false;
+                SSFXSplineInfos info = new()
+                {
+                    box = splines[i].boundingBox,
+                    startPositionIndex = totalSplineSteps,
+                    splineNbSteps = splines[i].curveStepsWithWidth.Length
+                };
+                totalSplineSteps += info.splineNbSteps;
+                infos[i] = info;
+
+            }
+
+            Vector4[] points = new Vector4[totalSplineSteps];
+            int currentIndex = 0;
+            for (int i = 0; i < splines.Count; i++)
+            {
+                for (int j = 0; j < splines[i].curveStepsWithWidth.Length; j++)
+                {
+                    points[currentIndex] = splines[i].curveStepsWithWidth[j];
+                    currentIndex++;
+                }
+            }
+
+            _splinesInfo.SetData(infos);
+
+            if (_splinesPositions != null)
+                _splinesPositions.Release();
+            _splinesPositions = new ComputeBuffer(totalSplineSteps, Marshal.SizeOf(typeof(Vector4)));
+            _splinesPositions.SetData(points);
+
+            splinePositions = _splinesPositions;
+            splinesInfo = _splinesInfo;
+            return splines.Count();
+        }
+
+        // Register spline.
+        public static void RegisterSpline(SplineCreator spline)
+        {
+            if (splines == null)
+                splines = new List<SplineCreator>();
+            splines.Add(spline);
+        }
+
+        // Unregister spline.
+        public static void UnregisterSpline(SplineCreator spline)
+        {
+            if (splines != null)
+                splines.Remove(spline);
+        }
+
+        // Get spline index in spline resistered list.
+        public static int GetSplineIndex(SplineCreator spline)
+        {
+            if (splines != null)
+                return splines.IndexOf(spline);
+            return 0;
         }
 
     }

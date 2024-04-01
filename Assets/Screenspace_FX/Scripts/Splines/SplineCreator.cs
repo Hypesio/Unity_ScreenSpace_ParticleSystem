@@ -1,27 +1,136 @@
 using System.Collections;
 using System.Collections.Generic;
+using SSFX;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
 
+[System.Serializable]
+public struct SplinePoint
+{
+    public BezierCubicPoint point;
+    public float width;
+
+    public SplinePoint(BezierCubicPoint p, float w)
+    {
+        width = w;
+        point = p;
+    }
+}
+
+public struct BoundingBox
+{
+    public Vector3 cornerMin;
+    public Vector3 cornerMax;
+
+    public BoundingBox(bool setMax)
+    {
+        cornerMax = Vector3.zero;
+        cornerMin = Vector3.zero;
+        if (setMax)
+        {
+            cornerMin.x = float.MaxValue;
+            cornerMin.y = float.MaxValue;
+            cornerMin.z = float.MaxValue;
+
+            cornerMax.x = float.MinValue;
+            cornerMax.y = float.MinValue;
+            cornerMax.z = float.MinValue;
+        }
+    }
+}
+
 [ExecuteInEditMode]
 public class SplineCreator : MonoBehaviour
 {
-    public BezierCubicPoint[] points;
+    public SplinePoint[] points;
+
+    public Vector3[] curveSteps;
+    public Vector4[] curveStepsWithWidth;
+    public BoundingBox boundingBox;
     public int debug_displayPointCount = 50;
     public int debug_displayPrecisionStep = 20;
     public int _indexSelectedPoint = -1;
     public bool _influencerSelected = false;
     public bool _isMovingPoint = false;
+    // Set to true when pipeline values changes.
+    public bool isDirty = false;
+    [HideInInspector]
+    public int splineIndex = 0;
+
+    private void Start()
+    {
+        UpdateSplineDatas();
+
+        // Register splines for particle system.
+        SSFXParticleSystemHandler.RegisterSpline(this);
+    }
+
+    private void OnDestroy()
+    {
+        SSFXParticleSystemHandler.UnregisterSpline(this);
+    }
+
+    // Compute spline bounding box.
+    public BoundingBox GetSplineBoundingBox(Vector3[] steps)
+    {
+        BoundingBox bb = new BoundingBox(true);
+
+        foreach (var s in steps)
+        {
+            if (s.x > bb.cornerMax.x)
+                bb.cornerMax.x = s.x;
+            if (s.y > bb.cornerMax.y)
+                bb.cornerMax.y = s.y;
+            if (s.z > bb.cornerMax.z)
+                bb.cornerMax.z = s.z;
+
+            if (s.x < bb.cornerMin.x)
+                bb.cornerMin.x = s.x;
+            if (s.y < bb.cornerMin.y)
+                bb.cornerMin.y = s.y;
+            if (s.z < bb.cornerMin.z)
+                bb.cornerMin.z = s.z;
+        }
+
+        return bb;
+    }
+
+    public BezierCubicPoint[] GetSplineBezierPoints()
+    {
+        BezierCubicPoint[] bcp = new BezierCubicPoint[points.Length];
+        for (int i = 0; i < points.Length; i++)
+        {
+            bcp[i] = points[i].point;
+        }
+        return bcp;
+    }
+
+
+    // Update spline computed datas. 
+    public void UpdateSplineDatas()
+    {
+        isDirty = true;
+        curveSteps = BezierCubic.GetPositions(GetSplineBezierPoints(), points.Length * debug_displayPrecisionStep, out (int, float)[] stepInPart, debug_displayPointCount);
+        boundingBox = GetSplineBoundingBox(curveSteps);
+
+        curveStepsWithWidth = new Vector4[curveSteps.Length];
+        for (int i = 0; i < curveSteps.Length; i++)
+        {
+            float width = Mathf.Lerp(points[stepInPart[i].Item1].width, points[stepInPart[i].Item1 + 1].width, stepInPart[i].Item2);
+            Vector3 step = curveSteps[i];
+            curveStepsWithWidth[i] = new Vector4(step.x, step.y, step.z, width);
+        }
+    }
 
     // Add a point at the specified index.
-    public void AddPoint(int insertIndex, BezierCubicPoint point)
+    public void AddPoint(int insertIndex, SplinePoint point)
     {
         if (points == null)
-            points = new BezierCubicPoint[0];
+            points = new SplinePoint[0];
 
-        BezierCubicPoint[] newPoints = new BezierCubicPoint[points.Length + 1];
+        SplinePoint[] newPoints = new SplinePoint[points.Length + 1];
         for (int i = 0; i < newPoints.Length; i++)
         {
             if (i < insertIndex)
@@ -41,6 +150,7 @@ public class SplineCreator : MonoBehaviour
     {
         BezierCubicPoint newPoint = new();
         int indexInsert = indexPreviousPoint + 1;
+        float width = 0.3f;
 
         if (points == null || points.Length == 0)
         {
@@ -50,24 +160,28 @@ public class SplineCreator : MonoBehaviour
         // Add in first
         else if (indexPreviousPoint == -1)
         {
-            newPoint.point = points[0].point;
+            newPoint.point = points[0].point.point;
+            width = points[0].width;
             indexInsert = 0;
         }
         // Add in last
         else if (indexPreviousPoint >= points.Length - 1)
         {
             indexInsert = Mathf.Min(indexInsert, points.Length);
+
             // Add a little offset to avoid points to overlap
-            newPoint.point = points[indexInsert].point + 1f * (points[indexInsert].point - points[indexInsert - 1].point);
+            newPoint.point = points[indexPreviousPoint].point.point + 1f * (points[indexPreviousPoint].point.point - points[indexPreviousPoint - 1].point.point);
+            width = points[indexPreviousPoint].width;
         }
         // Add in middle 
         else
         {
-            Vector3 link = points[indexInsert].point - points[indexInsert + 1].point;
-            newPoint.point = points[indexInsert].point + (Vector3.Magnitude(link) / 2.0f * link);
+            Vector3 link = points[indexInsert - 1].point.point - points[indexInsert].point.point;
+            newPoint.point = points[indexInsert - 1].point.point + (Vector3.Magnitude(link) / 2.0f * link);
+            width = points[indexPreviousPoint].width;
         }
 
-        AddPoint(indexInsert, newPoint);
+        AddPoint(indexInsert, new SplinePoint(newPoint, width));
     }
 
     // Add new point at the end of the spline
@@ -77,14 +191,13 @@ public class SplineCreator : MonoBehaviour
     }
 
 
+#if UNITY_EDITOR
     void Update()
     {
-        //_isMovingPoint = false;
-
         // User has selected this spline
         if (UnityEditor.Selection.activeGameObject == this.gameObject)
         {
-            Debug.Log("Object is selected");
+            //Debug.Log("Object is selected");
             // On click we search closest point or influencer
         }
         else
@@ -92,16 +205,18 @@ public class SplineCreator : MonoBehaviour
             _indexSelectedPoint = -1;
         }
     }
+#endif
 
     #region Gizmo
 
-    void ShowGizmosBezierPoint(BezierCubicPoint point, bool isSelected)
+    void ShowGizmosBezierPoint(BezierCubicPoint point, float width, bool isSelected)
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(point.point, point.point + point.influencer);
         Gizmos.DrawSphere(point.point + point.influencer, 0.10f);
         Gizmos.color = Color.green;
         Gizmos.DrawSphere(point.point, 0.25f);
+
 
         if (isSelected)
         {
@@ -119,25 +234,48 @@ public class SplineCreator : MonoBehaviour
         }
     }
 
-    void ShowGizmosSplineCurve(BezierCubicPoint[] points)
+    void ShowGizmosSplineCurve()
     {
         Gizmos.color = Color.green;
-        Vector3[] linePositions = BezierCubic.GetPositions(points, points.Length * debug_displayPrecisionStep, debug_displayPointCount);
+        Vector3[] linePositions = curveSteps;
+
+        if (curveSteps == null)
+            return;
         //BezierCubic.PrintValues(linePositions);
 
         for (int i = 0; i < linePositions.Length - 1; i++)
         {
+            Gizmos.color = Color.green;
             Gizmos.DrawCube(linePositions[i], new Vector3(0.05f, 0.05f, 0.05f));
             Gizmos.DrawLine(linePositions[i], linePositions[i + 1]);
+
+            Vector3 tangent = Vector3.Normalize(linePositions[i + 1] - linePositions[i]);
+
+            Vector3 normal = Quaternion.AngleAxis(90, Vector3.forward) * tangent;
+
+            Gizmos.DrawLine(linePositions[i], linePositions[i] + normal * curveStepsWithWidth[i].w);
+            Gizmos.DrawLine(linePositions[i], linePositions[i] - normal * curveStepsWithWidth[i].w);
         }
+
+
+        // Bounding box
+        Gizmos.color = Color.cyan;
+        BoundingBox bb = boundingBox;
+        Gizmos.DrawLine(bb.cornerMax, new Vector3(bb.cornerMin.x, bb.cornerMax.y, bb.cornerMax.z));
+        Gizmos.DrawLine(bb.cornerMax, new Vector3(bb.cornerMax.x, bb.cornerMin.y, bb.cornerMax.z));
+        Gizmos.DrawLine(bb.cornerMax, new Vector3(bb.cornerMax.x, bb.cornerMax.y, bb.cornerMin.z));
+
+        Gizmos.DrawLine(bb.cornerMin, new Vector3(bb.cornerMax.x, bb.cornerMin.y, bb.cornerMin.z));
+        Gizmos.DrawLine(bb.cornerMin, new Vector3(bb.cornerMin.x, bb.cornerMax.y, bb.cornerMin.z));
+        Gizmos.DrawLine(bb.cornerMin, new Vector3(bb.cornerMin.x, bb.cornerMin.y, bb.cornerMax.z));
     }
 
     void OnDrawGizmos()
     {
-        ShowGizmosSplineCurve(points);
+        ShowGizmosSplineCurve();
         for (int i = 0; i < points.Length; i++)
         {
-            ShowGizmosBezierPoint(points[i], i == _indexSelectedPoint);
+            ShowGizmosBezierPoint(points[i].point, points[i].width, i == _indexSelectedPoint);
         }
 
 #if UNITY_EDITOR

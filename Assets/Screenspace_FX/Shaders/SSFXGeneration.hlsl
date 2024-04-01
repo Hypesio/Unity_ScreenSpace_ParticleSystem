@@ -29,7 +29,7 @@ uniform float4 _ParticleEmissionData;
 uniform float4 _ParticleEmissionData2;
 // startSpeedType, startSpeedX, startSpeedY, startSpeedZ
 uniform float4 _ParticleEmissionData3;
-// IsContinuousEmetter, IsAlphaWorldSpace, IsEmetterInvsibile, ?
+// IsContinuousEmetter, IsAlphaWorldSpace, IsEmetterInvsibile, SplineIndex
 uniform float4 _ParticleEmissionData4;
 
 #define _IsContinousEmmeter _ParticleEmissionData4.x
@@ -46,6 +46,7 @@ uniform float4 _PreviousParticleSphereEffectData;
 #define _PreviousSpherePosition _PreviousParticleSphereEffectData.xyz
 #define _SphereRadius _ParticleSphereEffectData.w
 #define _PreviousSphereRadius _PreviousParticleSphereEffectData.w
+#define _SplineToFollowIndex _ParticleEmissionData4.w;
 
 // Uniforms set from mat
 uniform float _TimeProgressEffect;
@@ -205,6 +206,9 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
         particle.speed = normalize(GetStartSpeedDirection(particle.normal, i.localPosition)) * particle.startSpeed;
         particle.startSize = GetParticleInitialSize(RandomFloat(i.fragmentPosition.xy * 5.0)); 
         particle.size = particle.startSize;
+        particle.splineFollowIndex = (int)_SplineToFollowIndex;
+        particle.splineCurrentStep = 0;
+        particle.splineOffset = randomFloat;
         _ParticlesDatasBuffer[index] = particle;
     }
     

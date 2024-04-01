@@ -19,6 +19,12 @@ public class SSFXParticleSystem : MonoBehaviour
         None = 3,
     }
 
+    public enum FollowSplineType
+    {
+        UseClosest = 0,
+        UseFixedSpline = 1,
+    }
+
     public Renderer[] renderers;
     [Space]
 
@@ -53,6 +59,10 @@ public class SSFXParticleSystem : MonoBehaviour
     public bool particleDieWhenReachingTarget = true;
     [Tooltip("Max Value is 20.0f")]
     public float targetKillRadius = 0.2f;
+    public bool enableFollowSpline = false;
+    public FollowSplineType followType = FollowSplineType.UseClosest;
+    // Used if followType is fixed index
+    public SplineCreator splineToFollow;
 
     public bool enableSphereZoneEffect = false;
     public Vector3 spherePosition;
@@ -182,6 +192,11 @@ public class SSFXParticleSystem : MonoBehaviour
         if (enableSpeedOverLifetime)
             config.flagsFeature |= (int)SSFXParticleSystemFlags.SpeedOverLifetime;
 
+        if (enableFollowSpline)
+        {
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.FollowSpline;
+        }
+
         return config;
     }
 
@@ -205,7 +220,8 @@ public class SSFXParticleSystem : MonoBehaviour
             mat.SetVector("_ParticleEmissionData", new Vector4(_indexConfig, durationMin, durationMax, particleSpawnRate));
             mat.SetVector("_ParticleEmissionData2", new Vector4(startSizeMin, startSizeMax, startSpeedMin, startSpeedMax));
             mat.SetVector("_ParticleEmissionData3", new Vector4((float)startSpeedType, startDirection.x, startDirection.y, startDirection.z));
-            mat.SetVector("_ParticleEmissionData4", new Vector4(isContinuousEmetter ? 1 : 0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, 0));
+            // w = CurrentSplineIndex
+            mat.SetVector("_ParticleEmissionData4", new Vector4(isContinuousEmetter ? 1 : 0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, followType == FollowSplineType.UseFixedSpline ? SSFXParticleSystemHandler.GetSplineIndex(splineToFollow) : -1));
             mat.SetVector("_ParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, enableSphereZoneEffect ? sphereRadius : 0));
             mat.SetVector("_PreviousParticleSphereEffectData", new Vector4(spherePosition.x, spherePosition.y, spherePosition.z, enableSphereZoneEffect ? previousSphereRadius : 0));
         }
@@ -239,7 +255,7 @@ public class SSFXParticleSystem : MonoBehaviour
 
         foreach (var mat in _mats)
         {
-            mat.SetVector("_ParticleEmissionData4", new Vector4(0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, 0));
+            mat.SetVector("_ParticleEmissionData4", new Vector4(0, isMatAlphaWorldSpace ? 1 : 0, isEmetterInvisible ? 1 : 0, followType == FollowSplineType.UseFixedSpline ? SSFXParticleSystemHandler.GetSplineIndex(splineToFollow) : -1));
         }
     }
 

@@ -12,7 +12,7 @@
 
 // 0 - VertexCount
 // 1 - InstanceCount 
-// 2 - StartVertexCount 
+// 2 - StartVertexCount a
 // 3 - StartInstanceLocation 
 // 4 - PreviousInstanceCount
 // 5 - FrameNumber
@@ -23,6 +23,9 @@ uniform RWBuffer<int> _ParticlesDrawArgs;
 uniform RWStructuredBuffer<ParticleDatas> _ParticlesDatasBuffer;
 uniform StructuredBuffer<ParticleDatas> _PreviousParticlesDatasBuffer;
 uniform StructuredBuffer<ParticlesConfig> _ParticlesConfigs;
+uniform Buffer<float4> _SplinesPositions;
+uniform StructuredBuffer<SplineInfos> _SplinesInfos;
+uniform int _SplineCount;
 uniform int _MaxParticlesCount;
 uniform int _PrioritizeNewParticles;
 
@@ -103,54 +106,90 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
             datas.color.rgb = GetCurveColor(config.grad_colorOverLifetime, lifeProgress);
     }
 
-    //if (config.flagsFeature & FLAG_ALPHA_OVER_LIFETIME)
-
-
-
-    float2 uv = datas.worldPosition.xy * _NoiseMap_ST.xy;
-    
     // Size over lifetime
     if (config.flagsFeature & FLAG_SPEED_OVER_LIFETIME)
         datas.speed = normalize(datas.speed) * datas.startSpeed * GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
-
     float lenSpeed = length(datas.speed);
 
-    // Move to target
-    if (config.flagsFeature & FLAG_TARGET)
+    float3 directionToTarget;
+    float targetAttraction = 10.0;
+    // Move to spline point
+    if (config.flagsFeature & FLAG_FOLLOW_SPLINE)
     {
-        float3 directionToTarget = config.targetDatas.xyz - datas.worldPosition.xyz;
-        float particleDistToTarget = length(directionToTarget);
-        float targetAttraction;
-        float targetDeathRadius;
-        Unpack2Float32(config.targetDatas.w, 100.0f, 20.0f, targetAttraction, targetDeathRadius);
-        if (config.flagsFeature & FLAG_TARGET_DIE_ON_REACH && particleDistToTarget < targetDeathRadius)//lenSpeed * _Time_SSFX.y)
-            datas.duration = -1;
-
-        float3 speedToTarget = normalize(directionToTarget) * lenSpeed;
-        datas.speed = normalize(lerp(datas.speed, speedToTarget, targetAttraction * _Time_SSFX.y)) * lenSpeed;
+        // Search if we are in spline bound
+        if (datas.splineFollowIndex == -1)
+        {
+            datas.color.rgb = float3(1, 1, 0);
+            int closestSplineIndex = -1;
+            int closestPointIndex = -1;
+            float shortestDist = 999.0;
+            float dist;
+            for (int i = 0; i < _SplineCount; i++)
+            {
+                // Expensive search. Could be optimized a fast realtime usage.
+                SplineInfos spline = _SplinesInfos[i];
+                if (datas.worldPosition.x > spline.borderMin.x && datas.worldPosition.x < spline.borderMax.x
+                    && datas.worldPosition.y > spline.borderMin.y && datas.worldPosition.y < spline.borderMax.y
+                    && datas.worldPosition.z > spline.borderMin.z && datas.worldPosition.z < spline.borderMax.z)
+                    {
+                        datas.color.rgb = float3(1, 0, 0);
+                        
+                        for (int j = 0; j < spline.positionsCount; j++)
+                        {
+                            float4 splineStep = _SplinesPositions[spline.indexStartPositions + j];
+                            dist = length(datas.worldPosition - splineStep.xyz);
+                            if (dist < shortestDist)
+                            {
+                                shortestDist = dist;
+                                closestPointIndex = spline.indexStartPositions + j;
+                                closestSplineIndex = i;
+                            }
+                        }
+                    }
+                    
+                if (closestSplineIndex != -1)
+                {
+                    datas.splineFollowIndex = closestSplineIndex;
+                    datas.splineCurrentStep = closestPointIndex;
+                }
+            }
+        }
         
-        //if (lenSpeed > particleDistToTarget)
-        //    datas.speed = normalize(datas.speed) * particleDistToTarget;
+        if (datas.splineFollowIndex != -1)
+        {
+            float4 splinePoint = _SplinesPositions[datas.splineCurrentStep];
+             float3 directionMove = _SplinesPositions[datas.splineCurrentStep + 1] - _SplinesPositions[datas.splineCurrentStep];
+            if (dot(splinePoint - datas.worldPosition, directionMove) < 0)
+            {
+                SplineInfos info = _SplinesInfos[datas.splineFollowIndex];
+                if (datas.splineCurrentStep + 1 < info.indexStartPositions + info.positionsCount)
+                    datas.splineCurrentStep += 1;
+            }
+
+            float3 dirToPoint = _SplinesPositions[datas.splineCurrentStep] - datas.worldPosition.xyz;
+            directionToTarget = lerp(directionMove, dirToPoint, length(dirToPoint) / 2.2f);
+        }
     }
 
+    // Move to target
+    if (config.flagsFeature & FLAG_TARGET && 
+        (!config.flagsFeature & FLAG_FOLLOW_SPLINE || datas.splineFollowIndex == -1))
+        // Follow target only if not already following a spline
+    {
+        directionToTarget = config.targetDatas.xyz - datas.worldPosition.xyz;
+        float particleDistToTarget = length(directionToTarget);
+        float targetDeathRadius;
+        Unpack2Float32(config.targetDatas.w, 100.0f, 20.0f, targetAttraction, targetDeathRadius);
+        if (config.flagsFeature & FLAG_TARGET_DIE_ON_REACH && particleDistToTarget < targetDeathRadius)
+            datas.duration = -1;
+    }
 
+    if (config.flagsFeature & FLAG_TARGET || (config.flagsFeature & FLAG_FOLLOW_SPLINE && datas.splineFollowIndex != -1)){
+        float3 speedToTarget = normalize(directionToTarget) * lenSpeed;
+        datas.speed = normalize(lerp(datas.speed, speedToTarget, targetAttraction * _Time_SSFX.y)) * lenSpeed;
+    }
 
-    //float3 flowSpeed = (_NoiseMap.SampleLevel(sampler_NoiseMap, uv, 0.0).xyz - 1.0) * 2.0;
-    //float3 newSpeed = (float3(0, _SimulationBase.x, 0) + flowSpeed * _NoiseMap_ST.z + normalize(_Wind.xyz) * _Wind.w) * _Time_SSFX.y;
-    
-    
-
-    /*newSpeed += directionToTarget * distanceInfluenceTargetAttraction * _Time_SSFX.y;
-    if (length(newSpeed) > _SimulationBase.z)
-        newSpeed = normalize(newSpeed) * _SimulationBase.z;
-    datas.speed = lerp(datas.speed, newSpeed, 0.2);
-    if (length(datas.speed) > _SimulationBase.z)
-        datas.speed = normalize(datas.speed) * _SimulationBase.z;*/
     datas.worldPosition += float4(datas.speed * _Time_SSFX.y, 0);
-    //datas.worldPosition.y = max(datas.worldPosition.y, _SimulationBase.y);
-
-//    else 
-//        datas.worldPosition += float4(datas.normal * 0.01, 0.0f);
     _ParticlesDatasBuffer[particleIndex] = datas;
 }
 
