@@ -13,13 +13,26 @@ public struct SplinePoint
     public BezierCubicPoint point;
     public float width;
 
+    public Transform transform;
+
     public SplinePoint(BezierCubicPoint p, float w)
     {
         width = w;
         point = p;
+        transform = null;
     }
+
+    public void UpdatePointPos()
+    {
+        if (transform != null)
+        {
+            point.point = transform.position;
+        }
+    }
+
 }
 
+[System.Serializable]
 public struct BoundingBox
 {
     public Vector3 cornerMin;
@@ -42,6 +55,12 @@ public struct BoundingBox
     }
 }
 
+public enum SplineAttractionBoxType
+{
+    Automatic,
+    Manual
+}
+
 [ExecuteInEditMode]
 public class SplineCreator : MonoBehaviour
 {
@@ -49,7 +68,11 @@ public class SplineCreator : MonoBehaviour
 
     public Vector3[] curveSteps = new Vector3[0];
     public Vector4[] curveStepsWithWidth = new Vector4[0];
+
+    public SplineAttractionBoxType attractionBoxType = SplineAttractionBoxType.Automatic;
     public BoundingBox boundingBox;
+    [Tooltip("Taken into account only if attraction type is manual")]
+    public BoundingBox attractionBox;
     public int debug_displayPointCount = 50;
     public int debug_displayPrecisionStep = 20;
     public int _indexSelectedPoint = -1;
@@ -72,6 +95,8 @@ public class SplineCreator : MonoBehaviour
     {
         SSFXParticleSystemHandler.UnregisterSpline(this);
     }
+
+
 
     // Compute spline bounding box.
     public BoundingBox GetSplineBoundingBox(Vector3[] steps)
@@ -114,9 +139,17 @@ public class SplineCreator : MonoBehaviour
     {
         if (points.Length > 1)
         {
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i].UpdatePointPos();
+            }
+
             isDirty = true;
             curveSteps = BezierCubic.GetPositions(GetSplineBezierPoints(), points.Length * debug_displayPrecisionStep, out (int, float)[] stepInPart, debug_displayPointCount);
             boundingBox = GetSplineBoundingBox(curveSteps);
+
+            if (attractionBoxType == SplineAttractionBoxType.Automatic)
+                attractionBox = boundingBox;
 
             curveStepsWithWidth = new Vector4[debug_displayPointCount];
             for (int i = 0; i < debug_displayPointCount; i++)
@@ -246,7 +279,7 @@ public class SplineCreator : MonoBehaviour
         if (curveSteps == null)
             return;
         //BezierCubic.PrintValues(linePositions);
-        for (int i = 0; i < debug_displayPointCount; i++)
+        for (int i = 0; i < curveStepsWithWidth.Length; i++)
         {
             Gizmos.color = Color.green;
             Gizmos.DrawCube(linePositions[i], new Vector3(0.05f, 0.05f, 0.05f));
@@ -271,7 +304,7 @@ public class SplineCreator : MonoBehaviour
 
         // Bounding box
         Gizmos.color = Color.cyan;
-        BoundingBox bb = boundingBox;
+        BoundingBox bb = attractionBox;
         Gizmos.DrawLine(bb.cornerMax, new Vector3(bb.cornerMin.x, bb.cornerMax.y, bb.cornerMax.z));
         Gizmos.DrawLine(bb.cornerMax, new Vector3(bb.cornerMax.x, bb.cornerMin.y, bb.cornerMax.z));
         Gizmos.DrawLine(bb.cornerMax, new Vector3(bb.cornerMax.x, bb.cornerMax.y, bb.cornerMin.z));

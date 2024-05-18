@@ -59,6 +59,7 @@ public class SSFXParticleSystem : MonoBehaviour
     public bool particleDieWhenReachingTarget = true;
     [Tooltip("Max Value is 20.0f")]
     public float targetKillRadius = 0.2f;
+    public bool lifetimeIsTargetDistanceBased = false;
     public bool enableFollowSpline = false;
     public FollowSplineType followType = FollowSplineType.UseClosest;
     // Used if followType is fixed index
@@ -195,6 +196,11 @@ public class SSFXParticleSystem : MonoBehaviour
         if (enableFollowSpline)
         {
             config.flagsFeature |= (int)SSFXParticleSystemFlags.FollowSpline;
+        }
+
+        if (lifetimeIsTargetDistanceBased)
+        {
+            config.flagsFeature |= (int)SSFXParticleSystemFlags.LifetimeIsTargetDistanceBased;
         }
 
         return config;

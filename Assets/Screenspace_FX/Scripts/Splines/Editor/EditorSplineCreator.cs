@@ -99,6 +99,10 @@ public class EditorSplineCreator : Editor
 
     public override void OnInspectorGUI()
     {
+        if (GUILayout.Button("Update display"))
+        {
+            targetScript.UpdateSplineDatas();
+        }
 
         if (GUILayout.Button("Add point"))
         {

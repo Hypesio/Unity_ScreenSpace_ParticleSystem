@@ -164,8 +164,8 @@ MonoBehaviour:
   particleSpawnRate: 0.56
   startSpeedType: 1
   startDirection: {x: 0, y: 0, z: 0}
-  startSpeedMin: 1.53
-  startSpeedMax: 5.43
+  startSpeedMin: 3.1
+  startSpeedMax: 11.92
   enableGravityModifier: 0
   gravityModifier: 0
   startSizeMin: 0.01
@@ -710,26 +710,32 @@ MonoBehaviour:
       point: {x: -2.15, y: 2.33, z: 0}
       influencer: {x: 0, y: 0, z: 0}
     width: 0.38
+    transform: {fileID: 0}
   - point:
       point: {x: -2.15, y: 2.33, z: 0}
       influencer: {x: 0, y: 0, z: 0}
     width: 0.53
+    transform: {fileID: 0}
   - point:
       point: {x: -2.15, y: 2.33, z: 0}
       influencer: {x: 0, y: 0, z: 0}
     width: -0.08
+    transform: {fileID: 0}
   - point:
       point: {x: -0.86640424, y: 0.048380427, z: -0.37627444}
       influencer: {x: -0.06975573, y: -0.0009810477, z: 0.06376049}
     width: 2.06
+    transform: {fileID: 0}
   - point:
       point: {x: 4.21, y: -0.6172192, z: 3.4773474}
       influencer: {x: -0.44231272, y: 1.2360442, z: 1.9818723}
     width: 0.87
+    transform: {fileID: 0}
   - point:
       point: {x: 9.925078, y: -1.5713878, z: 3.3951645}
       influencer: {x: 0, y: 0, z: 0}
     width: 2.2
+    transform: {fileID: 0}
   curveSteps:
   - {x: -2.15, y: 2.33, z: 0}
   - {x: -1.8554008, y: 1.780317, z: -0.07733899}
@@ -997,6 +1003,13 @@ MonoBehaviour:
   - {x: 6.860978, y: -0.6200446, z: 4.186754, w: 1.6779298}
   - {x: 7.74209, y: -0.866581, z: 4.0050735, w: 1.8522681}
   - {x: 8.600716, y: -1.1296723, z: 3.789195, w: 2.0266063}
+  attractionBoxType: 0
+  boundingBox:
+    cornerMin: {x: -2.15, y: -1.5713878, z: -0.3308084}
+    cornerMax: {x: 9.925078, y: 2.33, z: 4.3372803}
+  attractionBox:
+    cornerMin: {x: -2.15, y: -1.5713878, z: -0.3308084}
+    cornerMax: {x: 9.925078, y: 2.33, z: 4.3372803}
   debug_displayPointCount: 19
   debug_displayPrecisionStep: 41
   _indexSelectedPoint: -1
@@ -1068,14 +1081,17 @@ MonoBehaviour:
       point: {x: 7.7, y: -0.8, z: 0.44}
       influencer: {x: 0, y: 0, z: 0}
     width: 0.42
+    transform: {fileID: 0}
   - point:
       point: {x: 11.651888, y: 1.4115336, z: 4.64}
       influencer: {x: 1.9965544, y: 1.1317793, z: 0.4185565}
     width: 0.73
+    transform: {fileID: 0}
   - point:
       point: {x: 15.949915, y: -4.18, z: 7.4}
       influencer: {x: 0, y: 0, z: -1.98}
     width: 0.73
+    transform: {fileID: 0}
   curveSteps:
   - {x: 7.7, y: -0.8, z: 0.44}
   - {x: 7.8113446, y: -0.7374239, z: 0.5270672}
@@ -1188,6 +1204,13 @@ MonoBehaviour:
   - {x: 15.74453, y: -3.619679, z: 6.484461, w: 0.73}
   - {x: 15.825375, y: -3.8344574, z: 6.668606, w: 0.73}
   - {x: 15.907915, y: -4.060764, z: 6.9592495, w: 0.73}
+  attractionBoxType: 0
+  boundingBox:
+    cornerMin: {x: 7.7, y: -4.18, z: 0.44}
+    cornerMax: {x: 15.949915, y: 1.6338321, z: 7.4}
+  attractionBox:
+    cornerMin: {x: 7.7, y: -4.18, z: 0.44}
+    cornerMax: {x: 15.949915, y: 1.6338321, z: 7.4}
   debug_displayPointCount: 50
   debug_displayPrecisionStep: 20
   _indexSelectedPoint: -1

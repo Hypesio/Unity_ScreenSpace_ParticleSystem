@@ -33,6 +33,7 @@ namespace SSFXParticles
         public float startSize;
         public float size;
         public float startMaxSpeed;
+        public float startTargetDistance;
         // - 
         public int splineFollowIndex;
         public int splineCurrentStep;

@@ -223,7 +223,7 @@ public class EditorSSFXParticleSystem : Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("particleDieWhenReachingTarget"));
             if (targetScript.particleDieWhenReachingTarget)
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("targetKillRadius"));
-
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("lifetimeIsTargetDistanceBased"));
         }
 
         GUILayout.Space(8);

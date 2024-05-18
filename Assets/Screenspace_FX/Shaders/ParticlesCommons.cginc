@@ -6,7 +6,7 @@
 uniform float4 _Time_SSFX; 
 
 // If change are made here, it MUST be replicated to SSFXRenderPassUtils.cs.
-// Could be really optimize by packing datas and aligned memory usage.
+// Could be easily optimized by packing datas and aligned memory usage.
 struct ParticleDatas
 {
     float4 worldPosition;
@@ -20,6 +20,7 @@ struct ParticleDatas
     float startSize;
     float size;
     float startSpeed;
+    float startTargetDistance;
 
     int splineFollowIndex;
     int splineCurrentStep;
@@ -45,6 +46,7 @@ struct SplineInfos
 #define FLAG_KILL_ALL (1 << 7)
 #define FLAG_TARGET_DIE_ON_REACH (1 << 8)
 #define FLAG_FOLLOW_SPLINE (1 << 9)
+#define FLAG_LIFETIME_IS_TARGET_DISTANCE (1 << 10)
 
 // If change are made here, it MUST be replicated to SSFXParticleSystemHandle.cs.
 struct ParticlesConfig {

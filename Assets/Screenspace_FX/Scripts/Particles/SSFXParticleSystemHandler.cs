@@ -22,6 +22,7 @@ namespace SSFX
         KillAll = 1 << 7,
         TargetDieOnReach = 1 << 8,
         FollowSpline = 1 << 9,
+        LifetimeIsTargetDistanceBased = 1 << 10,
 
     }
 
@@ -366,7 +367,7 @@ namespace SSFX
                 splines[i].isDirty = false;
                 SSFXSplineInfos info = new()
                 {
-                    box = splines[i].boundingBox,
+                    box = splines[i].attractionBox,
                     startPositionIndex = totalSplineSteps,
                     splineNbSteps = splines[i].curveStepsWithWidth.Length
 
