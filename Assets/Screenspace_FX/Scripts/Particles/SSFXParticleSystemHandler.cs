@@ -369,7 +369,9 @@ namespace SSFX
                     box = splines[i].boundingBox,
                     startPositionIndex = totalSplineSteps,
                     splineNbSteps = splines[i].curveStepsWithWidth.Length
+
                 };
+                Debug.Log($"Add spline count {info.splineNbSteps}");
                 totalSplineSteps += info.splineNbSteps;
                 infos[i] = info;
 

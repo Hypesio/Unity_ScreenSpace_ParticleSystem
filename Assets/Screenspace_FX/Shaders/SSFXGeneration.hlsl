@@ -209,6 +209,7 @@ void fragSSFXGeneration(FragmentInputSSFXGeneration i)
         particle.splineFollowIndex = (int)_SplineToFollowIndex;
         particle.splineCurrentStep = 0;
         particle.splineOffset = randomFloat;
+        particle.splineAngleOffset = RandomFloat(i.fragmentPosition.yx + float2(_Time_SSFX.x, _Time_SSFX.x)) * 3.142;
         _ParticlesDatasBuffer[index] = particle;
     }
     

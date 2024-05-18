@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using SSFX;
+using Unity.Burst.Intrinsics;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Playables;
@@ -44,10 +45,10 @@ public struct BoundingBox
 [ExecuteInEditMode]
 public class SplineCreator : MonoBehaviour
 {
-    public SplinePoint[] points;
+    public SplinePoint[] points = new SplinePoint[0];
 
-    public Vector3[] curveSteps;
-    public Vector4[] curveStepsWithWidth;
+    public Vector3[] curveSteps = new Vector3[0];
+    public Vector4[] curveStepsWithWidth = new Vector4[0];
     public BoundingBox boundingBox;
     public int debug_displayPointCount = 50;
     public int debug_displayPrecisionStep = 20;
@@ -111,16 +112,19 @@ public class SplineCreator : MonoBehaviour
     // Update spline computed datas. 
     public void UpdateSplineDatas()
     {
-        isDirty = true;
-        curveSteps = BezierCubic.GetPositions(GetSplineBezierPoints(), points.Length * debug_displayPrecisionStep, out (int, float)[] stepInPart, debug_displayPointCount);
-        boundingBox = GetSplineBoundingBox(curveSteps);
-
-        curveStepsWithWidth = new Vector4[curveSteps.Length];
-        for (int i = 0; i < curveSteps.Length; i++)
+        if (points.Length > 1)
         {
-            float width = Mathf.Lerp(points[stepInPart[i].Item1].width, points[stepInPart[i].Item1 + 1].width, stepInPart[i].Item2);
-            Vector3 step = curveSteps[i];
-            curveStepsWithWidth[i] = new Vector4(step.x, step.y, step.z, width);
+            isDirty = true;
+            curveSteps = BezierCubic.GetPositions(GetSplineBezierPoints(), points.Length * debug_displayPrecisionStep, out (int, float)[] stepInPart, debug_displayPointCount);
+            boundingBox = GetSplineBoundingBox(curveSteps);
+
+            curveStepsWithWidth = new Vector4[debug_displayPointCount];
+            for (int i = 0; i < debug_displayPointCount; i++)
+            {
+                float width = Mathf.Lerp(points[stepInPart[i].Item1].width, points[stepInPart[i].Item1 + 1].width, stepInPart[i].Item2);
+                Vector3 step = curveSteps[i];
+                curveStepsWithWidth[i] = new Vector4(step.x, step.y, step.z, width);
+            }
         }
     }
 
@@ -242,8 +246,7 @@ public class SplineCreator : MonoBehaviour
         if (curveSteps == null)
             return;
         //BezierCubic.PrintValues(linePositions);
-
-        for (int i = 0; i < linePositions.Length - 1; i++)
+        for (int i = 0; i < debug_displayPointCount; i++)
         {
             Gizmos.color = Color.green;
             Gizmos.DrawCube(linePositions[i], new Vector3(0.05f, 0.05f, 0.05f));
@@ -251,10 +254,18 @@ public class SplineCreator : MonoBehaviour
 
             Vector3 tangent = Vector3.Normalize(linePositions[i + 1] - linePositions[i]);
 
-            Vector3 normal = Quaternion.AngleAxis(90, Vector3.forward) * tangent;
+            Vector3 normal = Vector3.Cross(Vector3.right, tangent);
+            Vector3 normal2 = Vector3.Cross(Vector3.forward, tangent);
+            normal = normal2.magnitude > normal.magnitude ? normal2 : normal;
+            Vector3 toBorder = normal * curveStepsWithWidth[i].w;
 
-            Gizmos.DrawLine(linePositions[i], linePositions[i] + normal * curveStepsWithWidth[i].w);
-            Gizmos.DrawLine(linePositions[i], linePositions[i] - normal * curveStepsWithWidth[i].w);
+            Gizmos.DrawLine(linePositions[i], linePositions[i] + toBorder);
+            Gizmos.DrawLine(linePositions[i], linePositions[i] - toBorder);
+
+            float theta = 1.7f;
+            toBorder = toBorder * Mathf.Cos(theta) + Vector3.Cross(tangent, toBorder) * Mathf.Sin(theta) + (1 - Mathf.Cos(theta)) * Vector3.Dot(tangent, toBorder) * tangent;
+            Gizmos.DrawLine(linePositions[i], linePositions[i] + toBorder);
+            Gizmos.DrawLine(linePositions[i], linePositions[i] - toBorder);
         }
 
 

@@ -4,6 +4,8 @@ FX system that spawn particles using fragment shaders of meshes.
 
 Inspired by God Of War technique describe in [*Disintegrating Meshes with Particles in 'God of War'*](https://www.youtube.com/watch?v=ajNSrTprWsg&t=711s)
 
+This system isn't highly optimised. My main goal is rather to test things than make them 100% reliable. Don't consider it as production ready.
+
 ### Unity version support
 This table will be updated when i'll have time to test versions and based on your feedback.
 

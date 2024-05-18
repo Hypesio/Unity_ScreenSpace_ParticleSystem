@@ -37,6 +37,7 @@ namespace SSFXParticles
         public int splineFollowIndex;
         public int splineCurrentStep;
         public float splineOffset;
+        public float splineAngleOffset;
     }
 
     public static class SSFXRenderPassUtils

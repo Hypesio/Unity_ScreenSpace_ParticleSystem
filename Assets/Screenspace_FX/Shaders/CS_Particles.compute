@@ -68,6 +68,11 @@ void CSClearIndirectDrawArgs (uint3 id : SV_DispatchThreadID)
     _ParticlesDrawArgs[1] = 0;
 }
 
+inline int GetNegativeSplineIndex(int splineIndex)
+{
+    return -splineIndex - 1;
+}
+
 /**
 Here we handle the movements of the particles
 **/
@@ -111,33 +116,37 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         datas.speed = normalize(datas.speed) * datas.startSpeed * GetCurveValue(config.grad_speedOverLifetime, lifeProgress);
     float lenSpeed = length(datas.speed);
 
-    float3 directionToTarget;
+    float3 directionToTarget = datas.speed;
     float targetAttraction = 10.0;
+
     // Move to spline point
     if (config.flagsFeature & FLAG_FOLLOW_SPLINE)
     {
         // Search if we are in spline bound
-        if (datas.splineFollowIndex == -1)
+        if (datas.splineFollowIndex < 0)
         {
-            datas.color.rgb = float3(1, 1, 0);
+            //datas.color.rgb = float3(1, 1, 0);
             int closestSplineIndex = -1;
             int closestPointIndex = -1;
             float shortestDist = 999.0;
             float dist;
             for (int i = 0; i < _SplineCount; i++)
             {
-                // Expensive search. Could be optimized a fast realtime usage.
+                // Negative index is used to remember previous spline used and be sure to not follow it again.
+                if (GetNegativeSplineIndex(i) == datas.splineFollowIndex)
+                    continue;
+                // Expensive search. Could be optimized for a fast realtime usage.
                 SplineInfos spline = _SplinesInfos[i];
                 if (datas.worldPosition.x > spline.borderMin.x && datas.worldPosition.x < spline.borderMax.x
                     && datas.worldPosition.y > spline.borderMin.y && datas.worldPosition.y < spline.borderMax.y
                     && datas.worldPosition.z > spline.borderMin.z && datas.worldPosition.z < spline.borderMax.z)
                     {
-                        datas.color.rgb = float3(1, 0, 0);
+                        //datas.color.rgb = float3(1, 0, 0);
                         
                         for (int j = 0; j < spline.positionsCount; j++)
                         {
                             float4 splineStep = _SplinesPositions[spline.indexStartPositions + j];
-                            dist = length(datas.worldPosition - splineStep.xyz);
+                            dist = length(datas.worldPosition.xyz - splineStep.xyz);
                             if (dist < shortestDist)
                             {
                                 shortestDist = dist;
@@ -146,45 +155,62 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
                             }
                         }
                     }
-                    
-                if (closestSplineIndex != -1)
-                {
-                    datas.splineFollowIndex = closestSplineIndex;
-                    datas.splineCurrentStep = closestPointIndex;
-                }
+            }
+            
+            if (closestSplineIndex != -1)
+            {
+                datas.splineFollowIndex = closestSplineIndex;
+                datas.splineCurrentStep = closestPointIndex;
             }
         }
         
-        if (datas.splineFollowIndex != -1)
+        // Positive index means this particle follow a spline.
+        if (datas.splineFollowIndex >= 0)
         {
             float4 splinePoint = _SplinesPositions[datas.splineCurrentStep];
-             float3 directionMove = _SplinesPositions[datas.splineCurrentStep + 1] - _SplinesPositions[datas.splineCurrentStep];
-            if (dot(splinePoint - datas.worldPosition, directionMove) < 0)
+            float3 directionMove = _SplinesPositions[datas.splineCurrentStep].xyz - _SplinesPositions[datas.splineCurrentStep - 1].xyz;
+            float3 normal = cross(float3(0, 1, 0), directionMove);
+            float3 normal1 = cross(float3(1, 0, 0), directionMove);
+            normal = normalize(length(normal) > length(normal1) ? normal : normal1);
+            // Rotate normal 
+            normal = normal * cos(datas.splineAngleOffset) + cross(directionMove, normal) * sin(datas.splineAngleOffset)
+                + (1 - cos(datas.splineAngleOffset)) * dot(directionMove, normal) * directionMove;
+            normal = normalize(normal);
+
+            splinePoint.xyz += datas.splineOffset * splinePoint.w * normal;
+            // Reach step, target the next one.
+            if (dot(splinePoint.xyz - datas.worldPosition.xyz, directionMove) < 0)
             {
                 SplineInfos info = _SplinesInfos[datas.splineFollowIndex];
                 if (datas.splineCurrentStep + 1 < info.indexStartPositions + info.positionsCount)
                     datas.splineCurrentStep += 1;
+                else 
+                {
+                    datas.splineFollowIndex = GetNegativeSplineIndex(datas.splineFollowIndex);
+                    //datas.color.rgb = float3(1, 0.5, 1);
+                }
             }
-
-            float3 dirToPoint = _SplinesPositions[datas.splineCurrentStep] - datas.worldPosition.xyz;
-            directionToTarget = lerp(directionMove, dirToPoint, length(dirToPoint) / 2.2f);
+            
+            // Vector lerp to smoothly attract particles in spline
+            float3 dirToPoint = splinePoint.xyz - datas.worldPosition.xyz;
+            directionToTarget = lerp(directionMove, dirToPoint, length(dirToPoint) / 1.2);
         }
     }
 
     // Move to target
     if (config.flagsFeature & FLAG_TARGET && 
-        (!config.flagsFeature & FLAG_FOLLOW_SPLINE || datas.splineFollowIndex == -1))
+        (!config.flagsFeature & FLAG_FOLLOW_SPLINE || datas.splineFollowIndex < 0))
         // Follow target only if not already following a spline
     {
         directionToTarget = config.targetDatas.xyz - datas.worldPosition.xyz;
         float particleDistToTarget = length(directionToTarget);
         float targetDeathRadius;
-        Unpack2Float32(config.targetDatas.w, 100.0f, 20.0f, targetAttraction, targetDeathRadius);
+        Unpack2Float32(config.targetDatas.w, 100.0, 20.0, targetAttraction, targetDeathRadius);
         if (config.flagsFeature & FLAG_TARGET_DIE_ON_REACH && particleDistToTarget < targetDeathRadius)
             datas.duration = -1;
     }
 
-    if (config.flagsFeature & FLAG_TARGET || (config.flagsFeature & FLAG_FOLLOW_SPLINE && datas.splineFollowIndex != -1)){
+    if (config.flagsFeature & FLAG_TARGET || (config.flagsFeature & FLAG_FOLLOW_SPLINE && datas.splineFollowIndex >= 0)){
         float3 speedToTarget = normalize(directionToTarget) * lenSpeed;
         datas.speed = normalize(lerp(datas.speed, speedToTarget, targetAttraction * _Time_SSFX.y)) * lenSpeed;
     }

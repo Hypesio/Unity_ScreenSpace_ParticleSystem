@@ -24,6 +24,7 @@ struct ParticleDatas
     int splineFollowIndex;
     int splineCurrentStep;
     float splineOffset;
+    float splineAngleOffset;
 };
 
 struct SplineInfos
