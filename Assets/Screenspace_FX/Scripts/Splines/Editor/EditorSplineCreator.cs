@@ -131,10 +131,10 @@ public class EditorSplineCreator : Editor
                 }
             }
         }
-        else if (targetScript.debug_displayPointCount != prevStepCount || targetScript.debug_displayPrecisionStep != prevPrecisionCount)
+        else if (targetScript.stepToComputePerSegment != prevStepCount || targetScript.precisionStep != prevPrecisionCount)
         {
-            prevStepCount = targetScript.debug_displayPointCount;
-            prevPrecisionCount = targetScript.debug_displayPrecisionStep;
+            prevStepCount = targetScript.stepToComputePerSegment;
+            prevPrecisionCount = targetScript.precisionStep;
             targetScript.UpdateSplineDatas();
         }
 

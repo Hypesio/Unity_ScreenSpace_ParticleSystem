@@ -51,6 +51,11 @@ public class LerpTransform : MonoBehaviour
                 targetTransform.localScale = targetScale;
                 _effectPlaying = false;
             }
+
+            if (targetTransform.TryGetComponent<SplineCreator>(out SplineCreator spline))
+            {
+                spline.isDirty = true;
+            }
         }
     }
 

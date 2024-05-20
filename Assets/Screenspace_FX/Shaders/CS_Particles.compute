@@ -151,13 +151,14 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
                 // Negative index is used to remember previous spline used and be sure to not follow it again.
                 if (GetNegativeSplineIndex(i) == datas.splineFollowIndex)
                     continue;
+
                 // Expensive search. Could be optimized for a fast realtime usage.
                 SplineInfos spline = _SplinesInfos[i];
                 if (datas.worldPosition.x > spline.borderMin.x && datas.worldPosition.x < spline.borderMax.x
                     && datas.worldPosition.y > spline.borderMin.y && datas.worldPosition.y < spline.borderMax.y
                     && datas.worldPosition.z > spline.borderMin.z && datas.worldPosition.z < spline.borderMax.z)
                     {
-                        //datas.color.rgb = float3(1, 0, 0);
+                        //datas.color.rgb = float3(0, 1, 0);
                         
                         for (int j = 0; j < spline.positionsCount; j++)
                         {
@@ -185,9 +186,11 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
         {
             float4 splinePoint = _SplinesPositions[datas.splineCurrentStep];
             float3 directionMove = _SplinesPositions[datas.splineCurrentStep].xyz - _SplinesPositions[datas.splineCurrentStep - 1].xyz;
-            float3 normal = cross(float3(0, 1, 0), directionMove);
-            float3 normal1 = cross(float3(1, 0, 0), directionMove);
-            normal = normalize(length(normal) > length(normal1) ? normal : normal1);
+            
+            // Weird hack to get a descent normal but it works ¯\_(ツ)_/¯
+            float3 aRef = lerp(float3(0, 0, 1), float3(0, 1, 0), dot(float3(0, 0, 1), directionMove));
+            float3 normal = normalize(cross(aRef, directionMove));
+
             // Rotate normal 
             normal = normal * cos(datas.splineAngleOffset) + cross(directionMove, normal) * sin(datas.splineAngleOffset)
                 + (1 - cos(datas.splineAngleOffset)) * dot(directionMove, normal) * directionMove;
@@ -207,11 +210,12 @@ void CSParticlesSimulation (uint3 id : SV_DispatchThreadID)
             {
                 datas.speed = directionToTarget * lenSpeed;
                 SplineInfos info = _SplinesInfos[datas.splineFollowIndex];
-                if (datas.splineCurrentStep + 1 < info.indexStartPositions + info.positionsCount)
+                if (datas.splineCurrentStep + 1< info.indexStartPositions + info.positionsCount)
                     datas.splineCurrentStep += 1;
                 else 
                 {
                     datas.splineFollowIndex = GetNegativeSplineIndex(datas.splineFollowIndex);
+                    //datas.color.rgb = float3(1, 0, 0);
                 }
             }
             

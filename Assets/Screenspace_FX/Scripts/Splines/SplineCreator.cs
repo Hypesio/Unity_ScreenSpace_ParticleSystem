@@ -73,8 +73,8 @@ public class SplineCreator : MonoBehaviour
     public BoundingBox boundingBox;
     [Tooltip("Taken into account only if attraction type is manual")]
     public BoundingBox attractionBox;
-    public int debug_displayPointCount = 50;
-    public int debug_displayPrecisionStep = 20;
+    public int stepToComputePerSegment = 50;
+    public int precisionStep = 20;
     public int _indexSelectedPoint = -1;
     public bool _influencerSelected = false;
     public bool _isMovingPoint = false;
@@ -144,15 +144,28 @@ public class SplineCreator : MonoBehaviour
                 points[i].UpdatePointPos();
             }
 
+
+
             isDirty = true;
-            curveSteps = BezierCubic.GetPositions(GetSplineBezierPoints(), points.Length * debug_displayPrecisionStep, out (int, float)[] stepInPart, debug_displayPointCount);
+            curveSteps = BezierCubic.GetPositions(GetSplineBezierPoints(), points.Length * stepToComputePerSegment, out (int, float)[] stepInPart, precisionStep);
             boundingBox = GetSplineBoundingBox(curveSteps);
 
             if (attractionBoxType == SplineAttractionBoxType.Automatic)
                 attractionBox = boundingBox;
+            else
+            {
+                Vector3 tmpMin = attractionBox.cornerMin;
+                Vector3 tmpMax = attractionBox.cornerMax;
+                attractionBox.cornerMin.x = Mathf.Min(tmpMin.x, tmpMax.x);
+                attractionBox.cornerMin.y = Mathf.Min(tmpMin.y, tmpMax.y);
+                attractionBox.cornerMin.z = Mathf.Min(tmpMin.z, tmpMax.z);
+                attractionBox.cornerMax.x = Mathf.Max(tmpMin.x, tmpMax.x);
+                attractionBox.cornerMax.y = Mathf.Max(tmpMin.y, tmpMax.y);
+                attractionBox.cornerMax.z = Mathf.Max(tmpMin.z, tmpMax.z);
+            }
 
-            curveStepsWithWidth = new Vector4[debug_displayPointCount];
-            for (int i = 0; i < debug_displayPointCount; i++)
+            curveStepsWithWidth = new Vector4[curveSteps.Length];
+            for (int i = 0; i < curveSteps.Length; i++)
             {
                 float width = Mathf.Lerp(points[stepInPart[i].Item1].width, points[stepInPart[i].Item1 + 1].width, stepInPart[i].Item2);
                 Vector3 step = curveSteps[i];
@@ -246,13 +259,13 @@ public class SplineCreator : MonoBehaviour
 
     #region Gizmo
 
-    void ShowGizmosBezierPoint(BezierCubicPoint point, float width, bool isSelected)
+    void ShowGizmosBezierPoint(BezierCubicPoint point, float width, bool isSelected, Color nonSelectedColor)
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(point.point, point.point + point.influencer);
-        Gizmos.DrawSphere(point.point + point.influencer, 0.10f);
-        Gizmos.color = Color.green;
-        Gizmos.DrawSphere(point.point, 0.25f);
+        Gizmos.DrawSphere(point.point + point.influencer, 0.07f);
+        Gizmos.color = nonSelectedColor;
+        Gizmos.DrawSphere(point.point, 0.15f);
 
 
         if (isSelected)
@@ -260,13 +273,13 @@ public class SplineCreator : MonoBehaviour
             Gizmos.color = Color.blue;
             if (_isMovingPoint)
             {
-                Gizmos.DrawSphere(point.point + point.influencer, 0.12f);
-                Gizmos.DrawSphere(point.point, 0.27f);
+                Gizmos.DrawSphere(point.point + point.influencer, 0.10f);
+                Gizmos.DrawSphere(point.point, 0.17f);
             }
             else
             {
-                Gizmos.DrawWireSphere(point.point + point.influencer, 0.12f);
-                Gizmos.DrawWireSphere(point.point, 0.27f);
+                Gizmos.DrawWireSphere(point.point + point.influencer, 0.10f);
+                Gizmos.DrawWireSphere(point.point, 0.17f);
             }
         }
     }
@@ -279,13 +292,23 @@ public class SplineCreator : MonoBehaviour
         if (curveSteps == null)
             return;
         //BezierCubic.PrintValues(linePositions);
-        for (int i = 0; i < curveStepsWithWidth.Length; i++)
+        for (int i = 0; i < curveSteps.Length; i++)
         {
             Gizmos.color = Color.green;
             Gizmos.DrawCube(linePositions[i], new Vector3(0.05f, 0.05f, 0.05f));
-            Gizmos.DrawLine(linePositions[i], linePositions[i + 1]);
+            Vector3 tangent = Vector3.zero;
 
-            Vector3 tangent = Vector3.Normalize(linePositions[i + 1] - linePositions[i]);
+            if (i < curveSteps.Length - 1)
+            {
+                Gizmos.DrawLine(linePositions[i], linePositions[i + 1]);
+                tangent = Vector3.Normalize(linePositions[i + 1] - linePositions[i]);
+            }
+            else if (i != 0)
+            {
+                Gizmos.DrawLine(linePositions[i - 1], linePositions[i]);
+                tangent = Vector3.Normalize(linePositions[i] - linePositions[i - 1]);
+            }
+
 
             Vector3 normal = Vector3.Cross(Vector3.right, tangent);
             Vector3 normal2 = Vector3.Cross(Vector3.forward, tangent);
@@ -319,7 +342,7 @@ public class SplineCreator : MonoBehaviour
         ShowGizmosSplineCurve();
         for (int i = 0; i < points.Length; i++)
         {
-            ShowGizmosBezierPoint(points[i].point, points[i].width, i == _indexSelectedPoint);
+            ShowGizmosBezierPoint(points[i].point, points[i].width, i == _indexSelectedPoint, Color.Lerp(Color.green, Color.grey, (float)i / (float)points.Length));
         }
 
 #if UNITY_EDITOR

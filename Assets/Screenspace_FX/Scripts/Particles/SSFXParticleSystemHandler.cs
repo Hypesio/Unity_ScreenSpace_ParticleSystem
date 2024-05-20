@@ -340,13 +340,18 @@ namespace SSFX
                 return 0;
             }
 
-            bool updateBuffers = false;
-            for (int i = 0; i < splines.Count; i++)
+            Debug.Log($"SplineGetted {splines.Count()}");
+
+            bool updateBuffers = _splinesInfo.count != splines.Count;
+            if (!updateBuffers)
             {
-                if (splines[i].isDirty)
+                for (int i = 0; i < splines.Count; i++)
                 {
-                    updateBuffers = true;
-                    break;
+                    if (splines[i].isDirty)
+                    {
+                        updateBuffers = true;
+                        break;
+                    }
                 }
             }
 
@@ -372,7 +377,6 @@ namespace SSFX
                     splineNbSteps = splines[i].curveStepsWithWidth.Length
 
                 };
-                Debug.Log($"Add spline count {info.splineNbSteps}");
                 totalSplineSteps += info.splineNbSteps;
                 infos[i] = info;
 

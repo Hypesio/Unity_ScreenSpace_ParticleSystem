@@ -30,17 +30,16 @@ public static class BezierCubic
     // progressInPart is the distance progress (range 0-1) of each point in their curve segment.
     public static Vector3[] GetPositions(BezierCubicPoint[] points, int nbPositions, out (int, float)[] progressInPart, int nbSteps = 100)
     {
+
         progressInPart = new (int, float)[nbPositions];
         // Can't get positions for a single point
         if (points.Length == 1)
             return new Vector3[] { points[0].point };
 
-
-
         float totalArcLength = GetLength(points, out float[] partsLength, nbSteps * (points.Length - 1));
         Vector3[] res = new Vector3[nbPositions];
         res[0] = points[0].point;
-        float distStep = totalArcLength / nbSteps;
+        float distStep = totalArcLength / (nbPositions - 1);
 
         int currentPart = 0;
         float currentTotalLengthCeil = partsLength[0];
@@ -100,14 +99,13 @@ public static class BezierCubic
             return 0;
 
         float previousLen = 0;
-        float arcLen = LUT[LUT.Length - 1];
         float stepSize = 1.0f / LUT.Length;
         // Could be optimize for large LUT arrays by changing search algorithm
         for (int i = 0; i < LUT.Length; i++)
         {
             if (LUT[i] > distance)
             {
-                float lerpStep = distance - previousLen;
+                float lerpStep = (distance - previousLen) / (LUT[i] - previousLen);
                 return Mathf.Lerp(Mathf.Max(0, (i - 1) * stepSize), i * stepSize, lerpStep);
             }
             previousLen = LUT[i];
