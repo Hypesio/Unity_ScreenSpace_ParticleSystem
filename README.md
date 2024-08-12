@@ -1,13 +1,13 @@
-# Unity_Screenspace_FX
+# Unity_Screenspace_ParticleSystem - Alpha 0.1
 
-FX system that spawn particles using fragment shaders of meshes. 
+Particle System system that spawn particles using fragment shaders of meshes. 
 
 Inspired by God Of War technique describe in [*Disintegrating Meshes with Particles in 'God of War'*](https://www.youtube.com/watch?v=ajNSrTprWsg&t=711s)
 
 This system isn't highly optimised. My main goal is rather to test things than make them 100% reliable. Don't consider it as production ready.
 
 ### Unity version support
-This table will be updated when i'll have time to test versions and based on your feedback.
+This table will be updated when i'll have time to test versions.
 
 | Version         | URP     | HDRP |
 |--------------|-----------|------------|
@@ -28,3 +28,12 @@ This table will be updated when i'll have time to test versions and based on you
 
 #### Easier Lit material setup
 If you want to use the `SSFX/Lit Generator` shader, I recommend setting values through `Universal Render Pipeline/Lit`. It will allows you to use the custom editor used by URP lit shaders. Then when it is ready just switch to `SSFX/Lit Generator` and it will keep all the properties you've set.
+
+### Examples
+
+https://github.com/user-attachments/assets/b39b3a1e-48e8-4e4c-9bdd-5728b74e9c35
+
+*Splines are still in active development. Currently particles can follow choosen splines and jump from a spline to another.*  
+
+https://github.com/user-attachments/assets/f955f758-8678-4b24-b9ca-9d74ca313f10
+
